@@ -44,6 +44,23 @@ router = APIRouter(prefix="/anime", tags=["anime"])
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 
+
+def _resolve_query(value: Any, fallback: int) -> int:
+    """
+    When route handlers are called directly in tests (bypassing FastAPI's ASGI
+    machinery), Query() objects are passed as-is instead of being resolved to
+    their declared default values.  This helper extracts the default from a
+    FastAPI FieldInfo object, or returns the value itself if it is already an
+    integer.
+    """
+    if isinstance(value, int):
+        return value
+    # FastAPI Query() returns a FieldInfo whose default is stored in .default
+    default = getattr(value, "default", None)
+    if isinstance(default, int):
+        return default
+    return fallback
+
 # ---------------------------------------------------------------------------
 # Cold-start: catalog + TF-IDF + AutoEncoder (unchanged)
 # ---------------------------------------------------------------------------
@@ -135,7 +152,7 @@ def get_upcoming_anime(per_page: int = Query(default=20, ge=1, le=50)):
     S3_BUCKET_NAME is not set (local-dev mode).
     """
     # Guard: when called directly in tests, Query() objects are not resolved
-    per_page = int(per_page) if not isinstance(per_page, int) else per_page
+    per_page = _resolve_query(per_page, 20)
     result = fetch_upcoming_anime(per_page=per_page)
     return result
 
@@ -196,7 +213,7 @@ def get_anime_reviews(mal_id: int, per_page: int = Query(default=5, ge=1, le=20)
     ID-translation step.  Falls back to Jikan's /anime/{id}/reviews if
     AniList is unreachable.
     """
-    per_page = int(per_page) if not isinstance(per_page, int) else per_page
+    per_page = _resolve_query(per_page, 5)
     result = fetch_reviews_by_mal_id(mal_id=mal_id, per_page=per_page)
     if result.get("source") == "error":
         raise HTTPException(
@@ -218,7 +235,7 @@ def get_anime_videos(mal_id: int, max_results: int = Query(default=5, ge=1, le=1
     Note: YouTube Data API v3 search.list costs 100 quota units per call.
     The free tier provides 10,000 units/day (~100 searches/day).
     """
-    max_results = int(max_results) if not isinstance(max_results, int) else max_results
+    max_results = _resolve_query(max_results, 5)
     if not YOUTUBE_API_KEY:
         raise HTTPException(
             status_code=503,
@@ -288,7 +305,7 @@ def get_anime_news(mal_id: int, max_articles: int = Query(default=10, ge=1, le=2
     The RSS feed is cached in-memory per Lambda instance (TTL: 1 hour) so
     most requests pay zero network latency.  No API key required.
     """
-    max_articles = int(max_articles) if not isinstance(max_articles, int) else max_articles
+    max_articles = _resolve_query(max_articles, 10)
     if mal_id not in mal_id_to_index:
         raise HTTPException(status_code=404, detail="Anime not found in catalog")
 
