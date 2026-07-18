@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Recommender Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app" class="container">
+        <header>
+            <h1>Spotify Recommender</h1>
+            <p class="subtitle">Discover new tracks based on your listening profile.</p>
+        </header>
+
+        <main>
+            <!-- Landing State -->
+            <section id="landing-state" class="state-section active">
+                <div class="auth-card">
+                    <h2>Connect to Spotify</h2>
+                    <p>Connect your Spotify account to see your top artists, tracks, and custom recommendations.</p>
+                    <button id="connect-btn" class="primary-btn">Connect Spotify</button>
+                    <p class="small-text">(After successful login, please hit "Back" in your browser or return to this page manually.)</p>
+                </div>
+            </section>
+
+            <!-- Dashboard State -->
+            <section id="dashboard-state" class="state-section hidden">
+                <!-- Top Tracks Section -->
+                <div class="dashboard-section">
+                    <h2>Your Top Tracks</h2>
+                    <div id="loading-top-tracks" class="loading">Loading...</div>
+                    <div id="error-top-tracks" class="error hidden"></div>
+                    <div id="top-tracks-grid" class="card-grid"></div>
+                </div>
+
+                <!-- Top Artists Section -->
+                <div class="dashboard-section">
+                    <h2>Your Top Artists</h2>
+                    <div id="loading-top-artists" class="loading">Loading...</div>
+                    <div id="error-top-artists" class="error hidden"></div>
+                    <div id="top-artists-grid" class="card-grid"></div>
+                </div>
+
+                <!-- Recommendations Section -->
+                <div class="dashboard-section">
+                    <h2>Recommended Tracks</h2>
+                    <p class="section-desc">Custom recommendations based on your genre profile overlap.</p>
+                    <div id="loading-recommendations" class="loading">Loading...</div>
+                    <div id="error-recommendations" class="error hidden"></div>
+                    <div id="recommendations-grid" class="card-grid"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

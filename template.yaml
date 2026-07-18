@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Multi-Module Recommendation App (PyTorch Edition)
+
+Parameters:
+  StudentName:
+    Type: String
+    Description: Your name to make the S3 bucket globally unique (e.g., john-doe)
+    Default: student
+
+Resources:
+  # 1. DynamoDB Table for Spotify Tokens (On-Demand)
+  SpotifyUsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: spotify_users
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  # 2. S3 Bucket for Anime catalog
+  DataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${StudentName}-recommendation-app-data"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # 3. HTTP API (API Gateway)
+  RecommendationApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: prod
+
+  # 4. Lambda Execution Role (Least Privilege)
+  RecommendationAppLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: recommendation-app-lambda-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: RecommendationAppPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:DeleteItem
+                Resource: !GetAtt SpotifyUsersTable.Arn
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "${DataBucket.Arn}/*"
+
+  # 5. Lambda Function (Docker Container for PyTorch)
+  RecommendationAppFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: recommendation-app
+      PackageType: Image
+      Architectures:
+        - x86_64
+      Timeout: 30 # Seconds (PyTorch load and inference might take a bit)
+      MemorySize: 2048 # PyTorch requires significant memory
+      Role: !GetAtt RecommendationAppLambdaRole.Arn
+      Environment:
+        Variables:
+          DYNAMODB_TABLE_NAME: !Ref SpotifyUsersTable
+          S3_BUCKET_NAME: !Ref DataBucket
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref RecommendationApi
+            Path: /{proxy+}
+            Method: ANY
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: .
+      DockerTag: python3.11-v1
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway endpoint URL for Prod stage"
+    Value: !Sub "https://${RecommendationApi}.execute-api.${AWS::Region}.amazonaws.com/prod/"
