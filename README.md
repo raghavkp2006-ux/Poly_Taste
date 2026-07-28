@@ -1,21 +1,34 @@
 # Poly_Taste — Multi-Module Recommendation App
 
-A FastAPI application deployed to AWS Lambda via Mangum/SAM, providing content-based recommendations across multiple media domains. Currently supports **Spotify** and **Anime** modules; the Amazon module is planned.
+A FastAPI application deployed to AWS Lambda via Mangum/SAM, providing content-based recommendations across multiple media domains. Currently supports **Spotify**, **Anime**, and **Restaurants** modules.
 
 ---
 
 ## Modules
 
-### Spotify
+### Auth / Session
 
-Genre-profile content-based recommendations. Authenticates users via OAuth and builds a weighted genre fingerprint from their top artists.
+The app uses a signed cookie session for authentication, established via Spotify OAuth.
 
 #### Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/spotify/login` | Redirects to Spotify OAuth |
-| GET | `/spotify/callback` | OAuth callback — stores token |
+| GET | `/auth/me` | Returns current `user_id` if logged in (401 otherwise) |
+| POST | `/auth/logout` | Clears the session cookie |
+
+---
+
+### Spotify
+
+Genre-profile content-based recommendations. Authenticates users via OAuth (which also powers the whole app's session) and builds a weighted genre fingerprint from their top artists.
+
+#### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/spotify/login` | Sign in with Spotify (starts the app-wide login flow) |
+| GET | `/spotify/callback` | OAuth callback — stores token, sets session cookie |
 | GET | `/spotify/top-tracks` | User's top 10 tracks |
 | GET | `/spotify/recommendations` | Genre-profile track recommendations |
 | GET | `/spotify/recommend/{track_id}` | **[Deprecated]** DNN similarity via `/audio-features` (unavailable for new apps since Nov 2024) |
@@ -47,7 +60,23 @@ TF-IDF + AutoEncoder similarity over a Kitsu-sourced catalog, plus live data fro
 
 ---
 
-## Setup
+### Restaurants
+
+Content similarity recommendations using the Google Places API. It searches for nearby restaurants based on a seed restaurant's types/cuisines and price level, using TF-IDF and cosine similarity to rank candidates.
+
+#### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/restaurants/search?q=&location=` | Text search via Google Places API |
+| GET | `/restaurants/{place_id}` | Full details for a single restaurant |
+| GET | `/restaurants/{place_id}/recommend` | TF-IDF/cosine similarity recommendations based on cuisine and price |
+
+#### Setup
+
+1. Obtain a Google Places API Key from the Google Cloud Console.
+2. Enable the **Places API (New)** or standard **Places API**.
+3. Set the `GOOGLE_PLACES_API_KEY` in your `.env` file.
 
 ### 1. Clone and install
 
@@ -72,8 +101,10 @@ Edit `.env` and fill in:
 |----------|-------------|-----------------|
 | `SPOTIFY_CLIENT_ID` | Spotify endpoints | [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) |
 | `SPOTIFY_CLIENT_SECRET` | Spotify endpoints | Same app settings page |
-| `SPOTIFY_REDIRECT_URI` | Spotify OAuth | Set to `http://127.0.0.1:8000/spotify/callback` |
+| `SPOTIFY_REDIRECT_URI` | Spotify OAuth | Set to `http://127.0.0.1:8000/spotify/callback` exactly. **Note:** Access the app via http://127.0.0.1:8000, not localhost. Spotify treats localhost and 127.0.0.1 as different hosts and will reject localhost. |
+| `SESSION_SECRET_KEY` | App authentication | Set to a random secure string in production |
 | `YOUTUBE_API_KEY` | `/anime/{id}/videos` | [console.cloud.google.com](https://console.cloud.google.com/apis/library/youtube.googleapis.com) — enable YouTube Data API v3 |
+| `GOOGLE_PLACES_API_KEY` | `/restaurants/*` | [console.cloud.google.com](https://console.cloud.google.com/apis/library/places-backend.googleapis.com) — enable Places API |
 
 > **YouTube quota note:** `search.list` costs 100 quota units per call. The free tier provides 10,000 units/day, supporting ~100 video searches/day.
 
@@ -118,3 +149,5 @@ See [docs/architecture.md](docs/architecture.md) for the full AWS infrastructure
 - **SQLite** → Spotify user token storage (local dev, auto-detected)
 - **S3** → Anime/Amazon static catalog storage (production)
 - **Local JSON** → Catalog fallback (local dev, auto-detected)
+
+

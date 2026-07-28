@@ -84,6 +84,11 @@ def fetch_top_anime() -> List[Dict[str, Any]]:
 
             for item in items:
                 attrs = item.get("attributes", {})
+                
+                # Filter out adult-rated anime
+                if attrs.get("ageRating") == "R18":
+                    continue
+
                 relationships = item.get("relationships", {})
 
                 # --- Resolve genres ---

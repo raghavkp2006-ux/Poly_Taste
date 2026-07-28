@@ -16,12 +16,17 @@ class AnimeAutoEncoder(nn.Module):
         # Decoder
         self.dec1 = nn.Linear(latent_dim, 128)
         self.dec2 = nn.Linear(128, input_dim)
+        
+        # Regularization
+        self.dropout = nn.Dropout(0.3)
 
     def encode(self, x):
         x = F.relu(self.enc1(x))
+        x = self.dropout(x)
         return self.enc2(x) # Latent representation
 
     def forward(self, x):
         latent = self.encode(x)
         x = F.relu(self.dec1(latent))
-        return torch.sigmoid(self.dec2(x)) # TF-IDF features are non-negative, often small
+        x = self.dropout(x)
+        return self.dec2(x) # Linear output, no activation

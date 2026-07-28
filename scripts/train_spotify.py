@@ -158,7 +158,7 @@ def train(num_samples: int = 2000, epochs: int = 80, lr: float = 0.005) -> None:
             with torch.no_grad():
                 preds = (outputs >= 0.5).float()
                 acc = (preds == labels).float().mean().item()
-            print(f"  Epoch [{epoch+1:3d}/{epochs}]  loss={loss.item():.4f}  acc={acc:.3f}")
+            print(f"  Epoch [{epoch+1:3d}/{epochs}]  loss={loss.item():.4f}  acc={acc:.3f} | Tensor Device: {outputs.device}")
 
     os.makedirs("data/models", exist_ok=True)
     model_path = "data/models/spotify_model.pth"
@@ -181,6 +181,7 @@ if __name__ == "__main__":
     parser.add_argument("--samples", type=int, default=2000, help="Training pair count (default: 2000)")
     parser.add_argument("--epochs", type=int, default=80, help="Training epochs (default: 80)")
     parser.add_argument("--lr", type=float, default=0.005, help="Learning rate (default: 0.005)")
+    parser.add_argument("--num-workers", type=int, default=0, help="Number of dataloader workers (default: 0)")
     args = parser.parse_args()
 
     if args.dry_run:

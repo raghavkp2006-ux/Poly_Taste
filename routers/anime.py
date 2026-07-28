@@ -29,9 +29,15 @@ import feedparser
 import requests
 import torch
 import torch.nn as nn
+import pickle
+from pydantic import BaseModel
 from dotenv import load_dotenv
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import JSONResponse
 from sklearn.feature_extraction.text import TfidfVectorizer
+
+from database import add_like, remove_like, get_likes
+from services.auth import get_current_user_id
 
 from models.anime_dnn import AnimeAutoEncoder
 from services.anilist_client import fetch_reviews_by_mal_id, fetch_upcoming_anime
@@ -69,14 +75,23 @@ catalog = get_catalog_from_s3()
 mal_id_to_index = {anime["mal_id"]: i for i, anime in enumerate(catalog)}
 
 tf_idf_matrix = None
-vectorizer = TfidfVectorizer(max_features=1000, stop_words="english")
+vectorizer_path = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "data",
+    "models",
+    "tfidf_vectorizer.pkl"
+)
+vectorizer = None
+if os.path.exists(vectorizer_path):
+    with open(vectorizer_path, 'rb') as f:
+        vectorizer = pickle.load(f)
 
-if catalog:
+if catalog and vectorizer is not None:
     texts = [
         f"{anime.get('synopsis', '')} {' '.join(anime.get('genres', []))}"
         for anime in catalog
     ]
-    tf_idf_matrix = vectorizer.fit_transform(texts).toarray()
+    tf_idf_matrix = vectorizer.transform(texts).toarray()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 anime_model = AnimeAutoEncoder(input_dim=1000, latent_dim=32).to(device)
@@ -96,6 +111,37 @@ if tf_idf_matrix is not None:
     with torch.no_grad():
         tf_idf_tensor = torch.tensor(tf_idf_matrix, dtype=torch.float32).to(device)
         latent_catalog = anime_model.encode(tf_idf_tensor)
+
+# ---------------------------------------------------------------------------
+# Cold-start: Load precomputed embeddings (15,000 dataset)
+# ---------------------------------------------------------------------------
+_pkl_path = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "data",
+    "processed",
+    "anime_embeddings.pkl",
+)
+
+anime_data_map = {}
+latent_matrix = None
+latent_ids = []
+
+if os.path.exists(_pkl_path):
+    with open(_pkl_path, 'rb') as f:
+        anime_embeddings = pickle.load(f)
+        
+    for k, v in anime_embeddings.items():
+        anime_data_map[k] = v
+        latent_ids.append(k)
+        
+    if latent_ids:
+        # Move to CPU tensor for fast batch cosine similarity 
+        # (CPU is fine for 15k inference, avoiding GPU memory context issues in FastAPI)
+        import numpy as np
+        latent_matrix = torch.tensor(
+            np.array([anime_data_map[aid]['embedding'] for aid in latent_ids]),
+            dtype=torch.float32
+        )
 
 # ---------------------------------------------------------------------------
 # Cold-start: ANN RSS feed (cached per Lambda instance)
@@ -157,6 +203,60 @@ def get_upcoming_anime(per_page: int = Query(default=20, ge=1, le=50)):
     return result
 
 
+class AnimeRecRequest(BaseModel):
+    liked_ids: List[str]
+
+@router.post("/recommendations")
+def get_recommendations(request: AnimeRecRequest, limit: int = Query(default=10, ge=1, le=50)):
+    """
+    Return personalized anime recommendations based on a list of liked anime IDs.
+    Constructs a 'taste vector' by averaging the latent embeddings of the liked anime,
+    and returns the top-N most similar anime via cosine similarity.
+    """
+    if latent_matrix is None:
+        raise HTTPException(status_code=500, detail="Anime embeddings not loaded")
+        
+    valid_ids = [aid for aid in request.liked_ids if aid in anime_data_map]
+    if not valid_ids:
+        return {"recommendations": []}
+        
+    # Create taste vector (average of liked anime embeddings)
+    vectors = [anime_data_map[aid]['embedding'] for aid in valid_ids]
+    taste_vector = torch.tensor(vectors, dtype=torch.float32).mean(dim=0, keepdim=True)
+    
+    # Compute cosine similarity
+    cos = nn.CosineSimilarity(dim=1, eps=1e-6)
+    similarities = cos(taste_vector, latent_matrix)
+    
+    # Get top N + len(valid_ids) to ensure we can exclude liked ones
+    top_k = min(limit + len(valid_ids), len(latent_ids))
+    scores, indices = torch.topk(similarities, top_k)
+    
+    recommendations = []
+    liked_set = set(valid_ids)
+    
+    for score, idx in zip(scores, indices):
+        idx = idx.item()
+        aid = latent_ids[idx]
+        if aid in liked_set:
+            continue
+            
+        data = anime_data_map[aid]
+        recommendations.append({
+            "id": aid,
+            "title": data["title"],
+            "imageUrl": data["imageUrl"],
+            "reason": "Similar themes to your liked anime",
+            "score": round(score.item(), 4),
+            "category": "anime"
+        })
+        
+        if len(recommendations) == limit:
+            break
+            
+    return {"recommendations": recommendations}
+
+
 # ===========================================================================
 # PARAMETERISED ROUTES — /{mal_id} and /{mal_id}/sub-paths
 # ===========================================================================
@@ -170,16 +270,37 @@ def get_anime(mal_id: int):
 
 
 @router.get("/{mal_id}/recommend")
-def recommend_anime(mal_id: int, n: int = 5):
+def recommend_anime(
+    mal_id: int,
+    request: Request,
+    n: int = 5,
+    personalize: bool = Query(default=False),
+):
     """
     Compute cosine similarity in the latent space of the AutoEncoder and
     return the top-N most similar anime from the catalog.
+
+    Optional: pass ``?personalize=true`` to re-rank results using the user's
+    cross-module taste profile (requires a valid session cookie).  The base
+    similarity score is preserved — the profile boost only reorders; it never
+    discards items.  Non-personalized behaviour is unchanged when the param
+    is omitted or false.
     """
+    from services.auth import serializer as _session_serializer
+    user_id: Optional[str] = None
+    _cookie = request.cookies.get("session")
+    if _cookie:
+        try:
+            user_id = _session_serializer.loads(_cookie).get("user_id")
+        except Exception:
+            pass
+
     if mal_id not in mal_id_to_index:
         raise HTTPException(status_code=404, detail="Anime not found in catalog")
 
     if latent_catalog is None:
         raise HTTPException(status_code=500, detail="Model or catalog not properly loaded")
+
 
     seed_idx = mal_id_to_index[mal_id]
     seed_latent = latent_catalog[seed_idx].unsqueeze(0)  # (1, 32)
@@ -201,7 +322,28 @@ def recommend_anime(mal_id: int, n: int = 5):
         if len(recommendations) == n:
             break
 
-    return {"recommendations": recommendations}
+    # --- Optional: personalized re-ranking ---
+    if personalize and user_id:
+        try:
+            from services.taste_profile import get_anime_boost_map  # lazy import
+            boost_map = get_anime_boost_map(user_id)
+            for rec in recommendations:
+                rec_genres = [g.lower() for g in rec.get("genres", [])]
+                genre_boost = sum(boost_map.get(g, 0.0) for g in rec_genres)
+                # Boost formula: score * (1 + normalised_boost)
+                # Normalise by dividing by 10 to keep multiplier sane
+                normalised_boost = genre_boost / 10.0
+                rec["personalized_score"] = round(
+                    rec["similarity_score"] * (1.0 + normalised_boost), 4
+                )
+                rec["genre_boost"] = round(genre_boost, 4)
+            # Re-sort by personalized_score
+            recommendations.sort(key=lambda r: r["personalized_score"], reverse=True)
+        except Exception as exc:
+            print(f"[anime] personalize error: {exc}")
+            # Fall through — return un-boosted results
+
+    return {"recommendations": recommendations, "personalized": personalize}
 
 
 @router.get("/{mal_id}/reviews")
@@ -337,3 +479,23 @@ def get_anime_news(mal_id: int, max_articles: int = Query(default=10, ge=1, le=2
         "anime_title": anime_title,
         "articles": articles,
     }
+
+
+# ===========================================================================
+# LIKE / UNLIKE — authenticated, personalised signal collection
+# ===========================================================================
+
+@router.post("/{mal_id}/like", status_code=status.HTTP_201_CREATED)
+def like_anime(mal_id: int, user_id: str = Depends(get_current_user_id)):
+    """Record that the authenticated user liked this anime."""
+    if mal_id not in mal_id_to_index:
+        raise HTTPException(status_code=404, detail="Anime not found in catalog")
+    add_like(user_id, "anime", str(mal_id))
+    return {"liked": True, "mal_id": mal_id}
+
+
+@router.delete("/{mal_id}/like", status_code=status.HTTP_200_OK)
+def unlike_anime(mal_id: int, user_id: str = Depends(get_current_user_id)):
+    """Remove a previously liked anime for the authenticated user."""
+    remove_like(user_id, "anime", str(mal_id))
+    return {"liked": False, "mal_id": mal_id}

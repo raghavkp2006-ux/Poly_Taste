@@ -22,6 +22,15 @@ import pytest
 # Helper fixtures / shared mock data
 # ---------------------------------------------------------------------------
 
+@pytest.fixture(autouse=True)
+def clear_caches():
+    """Ensure in-memory caches are clean before each test runs."""
+    import services.anilist_client as client
+    client._upcoming_cache = None
+    client._upcoming_fetched_at = 0.0
+    client._reviews_cache.clear()
+    client._reviews_fetched_at.clear()
+
 MOCK_ANILIST_UPCOMING = {
     "data": {
         "Page": {
@@ -195,6 +204,68 @@ class TestUpcomingAniList:
 
         assert result["source"] == "jikan"
 
+    def test_upcoming_cache_hit(self):
+        """Cache hit skips network calls entirely."""
+        from services.anilist_client import fetch_upcoming_anime
+        import services.anilist_client as anilist_client
+        import time
+
+        # Seed the cache
+        anilist_client._upcoming_cache = {"source": "anilist", "upcoming": [{"mock": "data"}]}
+        anilist_client._upcoming_fetched_at = time.time()
+
+        with patch("services.anilist_client.requests.post") as mock_post, \
+             patch("services.anilist_client.requests.get") as mock_get:
+            result = fetch_upcoming_anime(per_page=5)
+
+        assert result["source"] == "anilist"
+        assert result["upcoming"] == [{"mock": "data"}]
+        mock_post.assert_not_called()
+        mock_get.assert_not_called()
+
+        # Clean up
+        anilist_client._upcoming_cache = None
+
+    def test_upcoming_cache_populated_from_jikan(self):
+        """Cache is populated when Jikan fallback succeeds."""
+        from services.anilist_client import fetch_upcoming_anime
+        import services.anilist_client as anilist_client
+
+        anilist_client._upcoming_cache = None
+
+        with patch("services.anilist_client.requests.post", side_effect=Exception("error")), \
+             patch("services.anilist_client.requests.get") as mock_get, \
+             patch("services.anilist_client._cache_upcoming_local"):
+            mock_get.return_value = _mock_get_response(MOCK_JIKAN_UPCOMING)
+            result = fetch_upcoming_anime(per_page=5)
+
+        assert result["source"] == "jikan"
+        assert anilist_client._upcoming_cache is not None
+        assert anilist_client._upcoming_cache["source"] == "jikan"
+
+        # Clean up
+        anilist_client._upcoming_cache = None
+
+    def test_upcoming_stale_cache_served_when_both_fail(self):
+        """Stale cache is served if both sources fail."""
+        from services.anilist_client import fetch_upcoming_anime
+        import services.anilist_client as anilist_client
+        import time
+
+        # Seed the cache with expired timestamp
+        anilist_client._upcoming_cache = {"source": "stale", "upcoming": [{"mock": "stale_data"}]}
+        anilist_client._upcoming_fetched_at = time.time() - 20000  # Older than TTL
+
+        with patch("services.anilist_client.requests.post", side_effect=Exception("error")), \
+             patch("services.anilist_client.requests.get", side_effect=Exception("error")):
+            result = fetch_upcoming_anime(per_page=5)
+
+        assert result["source"] == "stale"
+        assert result["upcoming"] == [{"mock": "stale_data"}]
+
+        # Clean up
+        anilist_client._upcoming_cache = None
+
 
 # ===========================================================================
 # 2. /anime/{mal_id}/reviews
@@ -282,6 +353,67 @@ class TestReviews:
             result = fetch_reviews_by_mal_id(mal_id=1)
 
         assert result["source"] == "jikan"
+
+    def test_reviews_cache_hit(self):
+        """Cache hit skips network calls entirely."""
+        from services.anilist_client import fetch_reviews_by_mal_id
+        import services.anilist_client as anilist_client
+        import time
+
+        anilist_client._reviews_cache[999] = {"source": "anilist", "reviews": [{"mock": "data"}]}
+        anilist_client._reviews_fetched_at[999] = time.time()
+
+        with patch("services.anilist_client.requests.post") as mock_post, \
+             patch("services.anilist_client.requests.get") as mock_get:
+            result = fetch_reviews_by_mal_id(mal_id=999, per_page=5)
+
+        assert result["source"] == "anilist"
+        assert result["reviews"] == [{"mock": "data"}]
+        mock_post.assert_not_called()
+        mock_get.assert_not_called()
+
+        # Clean up
+        del anilist_client._reviews_cache[999]
+
+    def test_reviews_cache_populated_from_jikan(self):
+        """Cache is populated when Jikan fallback succeeds."""
+        from services.anilist_client import fetch_reviews_by_mal_id
+        import services.anilist_client as anilist_client
+
+        if 998 in anilist_client._reviews_cache:
+            del anilist_client._reviews_cache[998]
+
+        with patch("services.anilist_client.requests.post", side_effect=Exception("error")), \
+             patch("services.anilist_client.requests.get") as mock_get:
+            mock_get.return_value = _mock_get_response(MOCK_JIKAN_REVIEWS)
+            result = fetch_reviews_by_mal_id(mal_id=998, per_page=5)
+
+        assert result["source"] == "jikan"
+        assert 998 in anilist_client._reviews_cache
+        assert anilist_client._reviews_cache[998]["source"] == "jikan"
+
+        # Clean up
+        del anilist_client._reviews_cache[998]
+
+    def test_reviews_stale_cache_served_when_both_fail(self):
+        """Stale cache is served if both sources fail."""
+        from services.anilist_client import fetch_reviews_by_mal_id
+        import services.anilist_client as anilist_client
+        import time
+
+        anilist_client._reviews_cache[997] = {"source": "stale", "reviews": [{"mock": "stale_data"}]}
+        anilist_client._reviews_fetched_at[997] = time.time() - 10000  # Older than TTL
+
+        with patch("services.anilist_client.requests.post", side_effect=Exception("error")), \
+             patch("services.anilist_client.requests.get", side_effect=Exception("error")):
+            result = fetch_reviews_by_mal_id(mal_id=997, per_page=5)
+
+        assert result["source"] == "stale"
+        assert result["reviews"] == [{"mock": "stale_data"}]
+
+        # Clean up
+        if 997 in anilist_client._reviews_cache:
+            del anilist_client._reviews_cache[997]
 
 
 # ===========================================================================

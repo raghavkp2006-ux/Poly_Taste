@@ -20,14 +20,20 @@ Always available:
               refresh_token, expires_at)    → None
   delete_user(user_id)                      → None
 
+  add_like(user_id, module, item_id)        → None
+  remove_like(user_id, module, item_id)     → None
+  get_likes(user_id, module=None)           → List[Dict]
+
 Local-dev mode only (None in Lambda/DynamoDB mode):
   SessionLocal    — SQLAlchemy session factory
   SpotifyUser     — SQLAlchemy ORM model
+  UserLike        — SQLAlchemy ORM model
   Base            — declarative_base (for create_all)
 """
 
 import os
-from typing import Optional, Dict, Any
+import time
+from typing import Optional, Dict, Any, List
 
 # ---------------------------------------------------------------------------
 # Detect which backend to use
@@ -53,8 +59,9 @@ if not _use_local:
 # LOCAL mode — SQLite via SQLAlchemy
 # ---------------------------------------------------------------------------
 if _use_local:
-    from sqlalchemy import create_engine, Column, String, Integer
-    from sqlalchemy.orm import declarative_base, sessionmaker
+    from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, UniqueConstraint, ForeignKey
+    from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+    from datetime import datetime, timezone
 
     _DB_PATH = os.getenv(
         "SQLITE_PATH",
@@ -81,8 +88,48 @@ if _use_local:
                 "expires_at": self.expires_at,
             }
 
+    class UserLike(Base):  # type: ignore[valid-type]
+        """ORM model for per-user cross-module likes (anime, amazon)."""
+
+        __tablename__ = "user_likes"
+        __table_args__ = (
+            UniqueConstraint("user_id", "module", "item_id", name="uq_user_module_item"),
+        )
+
+        id = Column(Integer, primary_key=True, autoincrement=True)
+        user_id = Column(String, nullable=False, index=True)
+        module = Column(String, nullable=False)   # "anime" | "amazon"
+        item_id = Column(String, nullable=False)  # mal_id or product_id as str
+        liked_at = Column(Integer, nullable=False)  # Unix epoch seconds
+
+        def to_dict(self) -> Dict[str, Any]:
+            return {
+                "user_id": self.user_id,
+                "module": self.module,
+                "item_id": self.item_id,
+                "liked_at": self.liked_at,
+            }
+
+    class Review(Base):  # type: ignore[valid-type]
+        __tablename__ = "restaurant_reviews"
+        id = Column(Integer, primary_key=True, autoincrement=True)
+        user_id = Column(String, nullable=False, index=True)
+        place_id = Column(String, nullable=False, index=True)
+        place_name = Column(String, nullable=False)
+        place_types = Column(String, nullable=True) # comma separated
+        rating = Column(Integer, nullable=False)
+        comment = Column(String, nullable=True)
+        created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
     Base.metadata.create_all(bind=_engine)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
+
+    def get_db():
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
 
     # ----- public API (local) -----
 
@@ -142,6 +189,67 @@ if _use_local:
             "Unset USE_LOCAL_DB or configure AWS credentials to use DynamoDB."
         )
 
+    def add_like(user_id: str, module: str, item_id: str) -> None:
+        """Record that user liked item_id in the given module. Idempotent."""
+        db = SessionLocal()
+        try:
+            existing = (
+                db.query(UserLike)
+                .filter(
+                    UserLike.user_id == user_id,
+                    UserLike.module == module,
+                    UserLike.item_id == item_id,
+                )
+                .first()
+            )
+            if not existing:
+                like = UserLike(
+                    user_id=user_id,
+                    module=module,
+                    item_id=item_id,
+                    liked_at=int(time.time()),
+                )
+                db.add(like)
+                db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"[database] add_like({user_id}, {module}, {item_id}): {e}")
+        finally:
+            db.close()
+
+    def remove_like(user_id: str, module: str, item_id: str) -> None:
+        """Remove a like. No-op if the like doesn't exist."""
+        db = SessionLocal()
+        try:
+            like = (
+                db.query(UserLike)
+                .filter(
+                    UserLike.user_id == user_id,
+                    UserLike.module == module,
+                    UserLike.item_id == item_id,
+                )
+                .first()
+            )
+            if like:
+                db.delete(like)
+                db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"[database] remove_like({user_id}, {module}, {item_id}): {e}")
+        finally:
+            db.close()
+
+    def get_likes(user_id: str, module: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Return all likes for a user, optionally filtered by module."""
+        db = SessionLocal()
+        try:
+            q = db.query(UserLike).filter(UserLike.user_id == user_id)
+            if module:
+                q = q.filter(UserLike.module == module)
+            return [row.to_dict() for row in q.order_by(UserLike.liked_at.desc()).all()]
+        finally:
+            db.close()
+
 # ---------------------------------------------------------------------------
 # AWS / Lambda mode — DynamoDB (unchanged from original)
 # ---------------------------------------------------------------------------
@@ -152,9 +260,14 @@ else:
     # Stubs so that imports don't break in Lambda
     SessionLocal = None  # type: ignore[assignment]
     SpotifyUser = None   # type: ignore[assignment]
+    UserLike = None      # type: ignore[assignment]
+    Restaurant = None    # type: ignore[assignment]
+    Review = None        # type: ignore[assignment]
     Base = None          # type: ignore[assignment]
+    get_db = None        # type: ignore[assignment]
 
     DYNAMODB_TABLE_NAME = os.getenv("DYNAMODB_TABLE_NAME", "spotify_users")
+    USER_LIKES_TABLE_NAME = os.getenv("USER_LIKES_TABLE_NAME", "user_likes")
 
     def get_dynamodb_resource():  # noqa: D103
         return boto3.resource("dynamodb")
@@ -196,3 +309,47 @@ else:
             table.delete_item(Key={"user_id": user_id})
         except ClientError as e:
             print(f"[database] delete_user({user_id}): {e}")
+
+    def add_like(user_id: str, module: str, item_id: str) -> None:
+        dynamodb = get_dynamodb_resource()
+        table = dynamodb.Table(USER_LIKES_TABLE_NAME)
+        try:
+            table.put_item(Item={
+                "pk": f"{user_id}#{module}#{item_id}",
+                "user_id": user_id,
+                "module": module,
+                "item_id": item_id,
+                "liked_at": int(time.time()),
+            })
+        except ClientError as e:
+            print(f"[database] add_like({user_id}, {module}, {item_id}): {e}")
+
+    def remove_like(user_id: str, module: str, item_id: str) -> None:
+        dynamodb = get_dynamodb_resource()
+        table = dynamodb.Table(USER_LIKES_TABLE_NAME)
+        try:
+            table.delete_item(Key={"pk": f"{user_id}#{module}#{item_id}"})
+        except ClientError as e:
+            print(f"[database] remove_like({user_id}, {module}, {item_id}): {e}")
+
+    def get_likes(user_id: str, module: Optional[str] = None) -> List[Dict[str, Any]]:
+        dynamodb = get_dynamodb_resource()
+        table = dynamodb.Table(USER_LIKES_TABLE_NAME)
+        try:
+            # Scan filtered by user_id (acceptable for small likes tables)
+            filter_expr = "user_id = :uid"
+            expr_vals: Dict[str, Any] = {":uid": user_id}
+            if module:
+                filter_expr += " AND #mod = :mod"
+                expr_vals[":mod"] = module
+            kwargs = {
+                "FilterExpression": filter_expr,
+                "ExpressionAttributeValues": expr_vals,
+            }
+            if module:
+                kwargs["ExpressionAttributeNames"] = {"#mod": "module"}
+            resp = table.scan(**kwargs)
+            return resp.get("Items", [])
+        except ClientError as e:
+            print(f"[database] get_likes({user_id}): {e}")
+            return []

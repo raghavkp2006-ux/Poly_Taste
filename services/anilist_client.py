@@ -22,6 +22,18 @@ ANILIST_URL = "https://graphql.anilist.co"
 JIKAN_URL = "https://api.jikan.moe/v4"
 
 # ---------------------------------------------------------------------------
+# In-Memory Cache (TTL)
+# ---------------------------------------------------------------------------
+
+_upcoming_cache: Optional[Dict[str, Any]] = None
+_upcoming_fetched_at: float = 0.0
+_UPCOMING_TTL = 14400  # 4 hours
+
+_reviews_cache: Dict[int, Dict[str, Any]] = {}
+_reviews_fetched_at: Dict[int, float] = {}
+_REVIEWS_TTL = 3600  # 1 hour
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -96,12 +108,14 @@ query ($page: Int, $perPage: Int, $season: MediaSeason, $seasonYear: Int) {
       seasonYear: $seasonYear
       status: NOT_YET_RELEASED
       type: ANIME
+      isAdult: false
     ) {
       id
       idMal
       title { romaji english }
       coverImage { medium }
       genres
+      isAdult
       studios(isMain: true) { nodes { name } }
       description(asHtml: false)
       startDate { year month day }
@@ -116,6 +130,9 @@ def _parse_upcoming_anilist(data: Dict[str, Any]) -> List[Dict[str, Any]]:
     media_list = data.get("data", {}).get("Page", {}).get("media", []) or []
     results = []
     for item in media_list:
+        if item.get("isAdult"):
+            continue
+            
         sd = item.get("startDate") or {}
         parts = [sd.get("year"), sd.get("month"), sd.get("day")]
         start_date = (
@@ -155,6 +172,10 @@ def _fetch_upcoming_jikan(limit: int) -> List[Dict[str, Any]]:
             items = response.json().get("data", [])
             results = []
             for item in items[:limit]:
+                rating = item.get("rating") or ""
+                if rating in ("Rx - Hentai", "R+ - Mild Nudity"):
+                    continue
+                    
                 results.append(
                     {
                         "id": None,
@@ -188,6 +209,12 @@ def fetch_upcoming_anime(per_page: int = 20) -> Dict[str, Any]:
 
     Returns a dict: {"source": "anilist"|"jikan"|"cache", "upcoming": [...]}
     """
+    global _upcoming_cache, _upcoming_fetched_at
+    now = time.time()
+
+    if _upcoming_cache is not None and (now - _upcoming_fetched_at) <= _UPCOMING_TTL:
+        return _upcoming_cache
+
     # Try AniList first
     season, year = _current_season_and_year()
     data = _anilist_post(
@@ -198,13 +225,23 @@ def fetch_upcoming_anime(per_page: int = 20) -> Dict[str, Any]:
         upcoming = _parse_upcoming_anilist(data)
         if upcoming:
             _cache_upcoming_local(upcoming)
-            return {"source": "anilist", "season": season, "year": year, "upcoming": upcoming}
+            res = {"source": "anilist", "season": season, "year": year, "upcoming": upcoming}
+            _upcoming_cache = res
+            _upcoming_fetched_at = now
+            return res
 
     print("[anilist] upcoming unavailable — trying Jikan fallback")
     upcoming = _fetch_upcoming_jikan(per_page)
     if upcoming:
         _cache_upcoming_local(upcoming)
-        return {"source": "jikan", "upcoming": upcoming}
+        res = {"source": "jikan", "upcoming": upcoming}
+        _upcoming_cache = res
+        _upcoming_fetched_at = now
+        return res
+
+    if _upcoming_cache is not None:
+        print("[anilist] Both sources failed. Serving stale upcoming cache.")
+        return _upcoming_cache
 
     # Last resort: local cache
     cached = _load_upcoming_local()
@@ -330,12 +367,31 @@ def fetch_reviews_by_mal_id(mal_id: int, per_page: int = 5) -> Dict[str, Any]:
     Fetch reviews for an anime by its MAL ID, using AniList's ``idMal`` field.
     Falls back to Jikan's /anime/{mal_id}/reviews endpoint if AniList fails.
     """
+    global _reviews_cache, _reviews_fetched_at
+    now = time.time()
+
+    if mal_id in _reviews_cache and (now - _reviews_fetched_at.get(mal_id, 0)) <= _REVIEWS_TTL:
+        return _reviews_cache[mal_id]
+
     data = _anilist_post(
         _REVIEWS_QUERY,
         {"malId": mal_id, "page": 1, "perPage": per_page},
     )
     if data and data.get("data", {}).get("Media"):
-        return _parse_reviews_anilist(mal_id, data)
+        res = _parse_reviews_anilist(mal_id, data)
+        _reviews_cache[mal_id] = res
+        _reviews_fetched_at[mal_id] = now
+        return res
 
     print(f"[anilist] reviews unavailable for mal_id={mal_id} — trying Jikan fallback")
-    return _fetch_reviews_jikan(mal_id, per_page)
+    res = _fetch_reviews_jikan(mal_id, per_page)
+    if res.get("source") != "error":
+        _reviews_cache[mal_id] = res
+        _reviews_fetched_at[mal_id] = now
+        return res
+
+    if mal_id in _reviews_cache:
+        print(f"[anilist] Both sources failed. Serving stale reviews cache for mal_id={mal_id}.")
+        return _reviews_cache[mal_id]
+
+    return res

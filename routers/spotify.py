@@ -5,10 +5,11 @@ import base64
 import torch
 from collections import defaultdict
 from typing import List, Dict, Any, Set, Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response, Depends
 from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
 
+from services.auth import create_session_cookie, get_current_user_id
 from database import get_user, upsert_user, delete_user
 from models.spotify_dnn import SpotifySimilarityDNN
 
@@ -19,8 +20,6 @@ router = APIRouter(prefix="/spotify", tags=["spotify"])
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 SPOTIFY_REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI")
-
-TEST_USER_ID = "test_user_123"
 
 # ---------------------------------------------------------------------------
 # Broad genre categories used for normalisation.
@@ -289,7 +288,7 @@ def refresh_spotify_token(user: Dict[str, Any]) -> str:
     new_refresh_token = token_info.get("refresh_token", user.get("refresh_token"))
     new_expires_at = int(time.time()) + token_info["expires_in"]
 
-    upsert_user(TEST_USER_ID, new_access_token, new_refresh_token, new_expires_at)
+    upsert_user(user["user_id"], new_access_token, new_refresh_token, new_expires_at)
     return new_access_token
 
 
@@ -323,7 +322,12 @@ def login_to_spotify():
 
 
 @router.get("/callback")
-def spotify_callback(code: str):
+def spotify_callback(response: Response, code: str | None = None, error: str | None = None):
+    if error:
+        raise HTTPException(status_code=400, detail="Spotify login was cancelled or denied")
+    if not code and not error:
+        raise HTTPException(status_code=400, detail="Login must start at /spotify/login")
+
     url = "https://accounts.spotify.com/api/token"
     headers = get_auth_header()
     headers["Content-Type"] = "application/x-www-form-urlencoded"
@@ -332,17 +336,37 @@ def spotify_callback(code: str):
         "code": code,
         "redirect_uri": SPOTIFY_REDIRECT_URI,
     }
-    response = requests.post(url, headers=headers, data=data)
-    if response.status_code != 200:
+    token_response = requests.post(url, headers=headers, data=data)
+    if token_response.status_code != 200:
         raise HTTPException(status_code=400, detail="Failed to get token")
 
-    token_info = response.json()
+    token_info = token_response.json()
     access_token = token_info["access_token"]
     refresh_token = token_info.get("refresh_token")
     expires_at = int(time.time()) + token_info["expires_in"]
 
-    upsert_user(TEST_USER_ID, access_token, refresh_token, expires_at)
-    return {"message": "Successfully logged in to Spotify!"}
+    user_response = requests.get(
+        "https://api.spotify.com/v1/me",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    if user_response.status_code != 200:
+        raise HTTPException(status_code=400, detail="Failed to get user profile")
+    
+    spotify_user_id = user_response.json()["id"]
+
+    upsert_user(spotify_user_id, access_token, refresh_token, expires_at)
+    
+    cookie_value = create_session_cookie(spotify_user_id)
+    response.set_cookie(
+        key="session",
+        value=cookie_value,
+        httponly=True,
+        samesite="lax"
+    )
+
+    response.status_code = 302
+    response.headers["Location"] = "http://localhost:5173/"
+    return response
 
 
 # ===========================================================================
@@ -350,8 +374,8 @@ def spotify_callback(code: str):
 # ===========================================================================
 
 @router.get("/top-tracks")
-def get_top_tracks():
-    token = get_valid_access_token(TEST_USER_ID)
+def get_top_tracks(user_id: str = Depends(get_current_user_id)):
+    token = get_valid_access_token(user_id)
     url = "https://api.spotify.com/v1/me/top/tracks?limit=10"
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.get(url, headers=headers)
@@ -380,7 +404,7 @@ def get_top_tracks():
 # ===========================================================================
 
 @router.get("/recommendations")
-def get_recommendations(limit: int = Query(default=10, ge=1, le=50)):
+def get_recommendations(limit: int = Query(default=10, ge=1, le=50), user_id: str = Depends(get_current_user_id)):
     """
     Content-based genre-profile recommendations.
 
@@ -393,7 +417,7 @@ def get_recommendations(limit: int = Query(default=10, ge=1, le=50)):
 
     Note: This path does NOT use the deprecated /audio-features API.
     """
-    token = get_valid_access_token(TEST_USER_ID)
+    token = get_valid_access_token(user_id)
     headers = {"Authorization": f"Bearer {token}"}
 
     # --- 1. Fetch top artists ---
@@ -537,13 +561,13 @@ def fetch_audio_features(track_ids: List[str], token: str) -> Dict[str, Dict[str
         "in November 2024.  For new integrations use GET /spotify/recommendations instead."
     ),
 )
-def recommend_similar_tracks(track_id: str):
+def recommend_similar_tracks(track_id: str, user_id: str = Depends(get_current_user_id)):
     """
     [DEPRECATED] Passes audio features into the PyTorch DNN to get similarity scores.
     Requires /audio-features API access (not available for new Spotify Developer apps
     created after November 2024).  Use /spotify/recommendations instead.
     """
-    token = get_valid_access_token(TEST_USER_ID)
+    token = get_valid_access_token(user_id)
 
     headers = {"Authorization": f"Bearer {token}"}
     url = "https://api.spotify.com/v1/me/top/tracks?limit=50"
