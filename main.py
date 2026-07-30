@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, Response
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from database import get_dynamodb_resource
-from routers import spotify, anime, restaurants, taste, restaurant
+from routers import google_auth, spotify, anime, restaurants, taste, restaurant
 from services.auth import get_current_user_id, create_session_cookie
 from pydantic import BaseModel
 from fastapi import HTTPException
@@ -17,6 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(google_auth.router)
 app.include_router(spotify.router)
 app.include_router(anime.router)
 app.include_router(restaurants.router)

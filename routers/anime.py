@@ -295,32 +295,52 @@ def recommend_anime(
         except Exception:
             pass
 
-    if mal_id not in mal_id_to_index:
-        raise HTTPException(status_code=404, detail="Anime not found in catalog")
-
-    if latent_catalog is None:
-        raise HTTPException(status_code=500, detail="Model or catalog not properly loaded")
-
-
-    seed_idx = mal_id_to_index[mal_id]
-    seed_latent = latent_catalog[seed_idx].unsqueeze(0)  # (1, 32)
-
-    cos = nn.CosineSimilarity(dim=1, eps=1e-6)
-    similarities = cos(seed_latent, latent_catalog)  # (N,)
-
-    scores, indices = torch.topk(similarities, n + 1)
-
-    recommendations = []
-    for score, idx in zip(scores, indices):
-        idx = idx.item()
-        if idx == seed_idx:
-            continue
-        rec_anime = catalog[idx].copy()
-        rec_anime["similarity_score"] = round(score.item(), 4)
-        recommendations.append(rec_anime)
-
-        if len(recommendations) == n:
-            break
+    # First try the small catalog (Cold-start model)
+    if mal_id in mal_id_to_index and latent_catalog is not None:
+        seed_idx = mal_id_to_index[mal_id]
+        seed_latent = latent_catalog[seed_idx].unsqueeze(0)  # (1, 32)
+        
+        cos = nn.CosineSimilarity(dim=1, eps=1e-6)
+        similarities = cos(seed_latent, latent_catalog)  # (N,)
+        scores, indices = torch.topk(similarities, n + 1)
+        
+        recommendations = []
+        for score, idx in zip(scores, indices):
+            idx = idx.item()
+            if idx == seed_idx:
+                continue
+            rec_anime = catalog[idx].copy()
+            rec_anime["similarity_score"] = round(score.item(), 4)
+            recommendations.append(rec_anime)
+            
+            if len(recommendations) == n:
+                break
+    # Fallback to the 15k dataset (latent_matrix)
+    elif str(mal_id) in anime_data_map and latent_matrix is not None:
+        seed_latent = torch.tensor(anime_data_map[str(mal_id)]["embedding"], dtype=torch.float32).unsqueeze(0)
+        
+        cos = nn.CosineSimilarity(dim=1, eps=1e-6)
+        similarities = cos(seed_latent, latent_matrix)
+        scores, indices = torch.topk(similarities, n + 1)
+        
+        recommendations = []
+        for score, idx in zip(scores, indices):
+            idx = idx.item()
+            aid = latent_ids[idx]
+            if aid == str(mal_id):
+                continue
+            rec_anime = {
+                "mal_id": int(aid),
+                "title": anime_data_map[aid]["title"],
+                "image_url": anime_data_map[aid]["imageUrl"],
+                "similarity_score": round(score.item(), 4)
+            }
+            recommendations.append(rec_anime)
+            
+            if len(recommendations) == n:
+                break
+    else:
+        raise HTTPException(status_code=404, detail="Anime not found in catalog or dataset")
 
     # --- Optional: personalized re-ranking ---
     if personalize and user_id:
@@ -379,18 +399,21 @@ def get_anime_videos(mal_id: int, max_results: int = Query(default=5, ge=1, le=1
     """
     max_results = _resolve_query(max_results, 5)
     if not YOUTUBE_API_KEY:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "YOUTUBE_API_KEY is not configured. "
-                "Set it in your .env file to enable video search."
-            ),
-        )
+        # Return empty list gracefully instead of 503 so frontend doesn't break
+        return {
+            "mal_id": mal_id,
+            "anime_title": "",
+            "query": "",
+            "videos": [],
+        }
 
-    if mal_id not in mal_id_to_index:
-        raise HTTPException(status_code=404, detail="Anime not found in catalog")
+    if mal_id in mal_id_to_index:
+        anime_title = catalog[mal_id_to_index[mal_id]].get("title", "")
+    elif str(mal_id) in anime_data_map:
+        anime_title = anime_data_map[str(mal_id)].get("title", "")
+    else:
+        raise HTTPException(status_code=404, detail="Anime not found")
 
-    anime_title = catalog[mal_id_to_index[mal_id]].get("title", "")
     search_query = f"{anime_title} explained OR trailer OR PV"
 
     try:
@@ -448,10 +471,14 @@ def get_anime_news(mal_id: int, max_articles: int = Query(default=10, ge=1, le=2
     most requests pay zero network latency.  No API key required.
     """
     max_articles = _resolve_query(max_articles, 10)
-    if mal_id not in mal_id_to_index:
-        raise HTTPException(status_code=404, detail="Anime not found in catalog")
+    
+    if mal_id in mal_id_to_index:
+        anime_title = catalog[mal_id_to_index[mal_id]].get("title", "")
+    elif str(mal_id) in anime_data_map:
+        anime_title = anime_data_map[str(mal_id)].get("title", "")
+    else:
+        raise HTTPException(status_code=404, detail="Anime not found")
 
-    anime_title = catalog[mal_id_to_index[mal_id]].get("title") or ""
     title_lower = anime_title.lower()
 
     feed = _get_ann_feed()

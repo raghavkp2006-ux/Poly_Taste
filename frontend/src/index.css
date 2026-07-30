@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=IBM+Plex+Mono:ital,wght@0,100..800;1,100..800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,74 +6,83 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    /* ── Palette: ink + parchment + category accents ────────────────── */
+    --background: 193 45% 11%;
+    --foreground: 37 46% 88%;
+    --card: 37 46% 88%;
+    --card-foreground: 193 45% 11%;
+    --popover: 37 46% 88%;
+    --popover-foreground: 193 45% 11%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --primary: 323 68% 44%;
+    --primary-foreground: 37 46% 88%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
+    --secondary: 193 20% 15%;
+    --secondary-foreground: 37 46% 88%;
 
-    --primary: 262 83% 58%;
-    --primary-foreground: 0 0% 100%;
+    --muted: 193 20% 16%;
+    --muted-foreground: 193 8% 68%;
 
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
+    --accent: 36 74% 60%;
+    --accent-foreground: 193 45% 11%;
 
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
+    --destructive: 4 62% 39%;
+    --destructive-foreground: 37 46% 88%;
 
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 262 83% 58%;
+    --border: 37 10% 30%;
+    --input: 193 20% 15%;
+    --ring: 36 74% 60%;
     --radius: 0.625rem;
 
     /* Sidebar */
-    --sidebar: 240 5% 96%;
-    --sidebar-foreground: 240 6% 25%;
-    --sidebar-accent: 262 83% 58%;
+    --sidebar: 193 40% 8%;
+    --sidebar-foreground: 37 10% 78%;
+    --sidebar-accent: 323 68% 44%;
+
+    /* Category Threads */
+    --color-music: 323 68% 44%;
+    --color-anime: 36 74% 60%;
+    --color-food: 4 62% 39%;
+    --color-convergence: 246 15% 58%;
   }
 
   .dark {
-    --background: 240 10% 4%;
-    --foreground: 0 0% 95%;
+    --background: 193 45% 11%;
+    --foreground: 37 46% 88%;
+    --card: 37 46% 88%;
+    --card-foreground: 193 45% 11%;
+    --popover: 37 46% 88%;
+    --popover-foreground: 193 45% 11%;
 
-    --card: 240 6% 10%;
-    --card-foreground: 0 0% 95%;
+    --primary: 323 68% 44%;
+    --primary-foreground: 37 46% 88%;
 
-    --popover: 240 6% 10%;
-    --popover-foreground: 0 0% 95%;
+    --secondary: 193 20% 15%;
+    --secondary-foreground: 37 46% 88%;
 
-    --primary: 262 83% 65%;
-    --primary-foreground: 0 0% 100%;
+    --muted: 193 20% 16%;
+    --muted-foreground: 193 8% 68%;
 
-    --secondary: 240 4% 16%;
-    --secondary-foreground: 0 0% 95%;
+    --accent: 36 74% 60%;
+    --accent-foreground: 193 45% 11%;
 
-    --muted: 240 4% 16%;
-    --muted-foreground: 240 5% 65%;
+    --destructive: 4 62% 39%;
+    --destructive-foreground: 37 46% 88%;
 
-    --accent: 240 4% 16%;
-    --accent-foreground: 0 0% 95%;
-
-    --destructive: 0 63% 55%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 240 4% 16%;
-    --input: 240 4% 16%;
-    --ring: 262 83% 65%;
+    --border: 37 10% 30%;
+    --input: 193 20% 15%;
+    --ring: 36 74% 60%;
 
     /* Sidebar */
-    --sidebar: 240 6% 7%;
-    --sidebar-foreground: 240 5% 75%;
-    --sidebar-accent: 262 83% 65%;
+    --sidebar: 193 40% 8%;
+    --sidebar-foreground: 37 10% 78%;
+    --sidebar-accent: 323 68% 44%;
+
+    /* Category Threads */
+    --color-music: 323 68% 44%;
+    --color-anime: 36 74% 60%;
+    --color-food: 4 62% 39%;
+    --color-convergence: 246 15% 58%;
   }
 }
 
@@ -88,6 +97,22 @@
 }
 
 @layer utilities {
+  /* ── Ticket-stub perforation ─────────────────────────────────────── */
+  .ticket-perf {
+    position: relative;
+    border-radius: 0;
+  }
+  .ticket-perf::after {
+    content: "";
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-image: radial-gradient(circle, #10262A 55%, transparent 55%);
+    background-size: 8px 8px;
+  }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;

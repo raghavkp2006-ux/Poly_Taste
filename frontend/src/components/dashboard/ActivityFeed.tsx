@@ -1,4 +1,3 @@
-import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui"
 import {
   Star,
@@ -13,8 +12,6 @@ import {
 import { motion } from "framer-motion"
 import type { ActivityItem, ActivityAction, Category } from "../../types"
 
-// ── Helpers ─────────────────────────────────────────────────────────
-
 const actionIcons: Record<ActivityAction, React.ElementType> = {
   rated: Star,
   liked: Heart,
@@ -22,17 +19,23 @@ const actionIcons: Record<ActivityAction, React.ElementType> = {
   added: PlusCircle,
 }
 
-const actionColors: Record<ActivityAction, string> = {
-  rated: "text-amber-500 bg-amber-500/10",
-  liked: "text-rose-500 bg-rose-500/10",
-  viewed: "text-blue-500 bg-blue-500/10",
-  added: "text-emerald-500 bg-emerald-500/10",
+const actionAccents: Record<ActivityAction, string> = {
+  rated: "#E8A23D",
+  liked: "#B23A2E",
+  viewed: "#C6318C",
+  added: "#4A9B8E",
 }
 
 const categoryIcons: Record<Category, React.ElementType> = {
   anime: Tv,
   restaurant: UtensilsCrossed,
   music: Music,
+}
+
+const categoryAccents: Record<Category, string> = {
+  anime: "#E8A23D",
+  restaurant: "#B23A2E",
+  music: "#C6318C",
 }
 
 function timeAgo(isoDate: string): string {
@@ -61,8 +64,6 @@ function describeAction(item: ActivityItem): string {
   }
 }
 
-// ── Component ───────────────────────────────────────────────────────
-
 interface ActivityFeedProps {
   items: ActivityItem[]
   loading: boolean
@@ -72,29 +73,37 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-2.5">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500">
-          <Activity className="h-4 w-4 text-white" />
+        <div
+          className="flex items-center justify-center w-8 h-8 shrink-0"
+          style={{ backgroundColor: "hsl(var(--sidebar-accent))" }}
+        >
+          <Activity className="h-4 w-4 text-parchment" />
         </div>
-        <h2 className="text-base font-semibold">Latest activity</h2>
+        <h2 className="text-base font-display tracking-wide uppercase text-foreground">
+          Latest activity
+        </h2>
       </div>
 
-      <div className="rounded-xl border border-border bg-card/50 divide-y divide-border overflow-hidden">
+      <div
+        className="rounded-none border border-border/40 overflow-hidden"
+        style={{ backgroundColor: "hsl(var(--card))" }}
+      >
         {loading ? (
           <div className="space-y-0">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3 px-4 py-3">
                 <Skeleton className="h-8 w-8 rounded-full shrink-0" />
                 <div className="flex-1 space-y-1.5">
-                  <Skeleton className="h-3 w-3/4" />
-                  <Skeleton className="h-2.5 w-1/4" />
+                  <Skeleton className="h-3 w-3/4 rounded-none" style={{ background: "#D9CEBC" }} />
+                  <Skeleton className="h-2.5 w-1/4 rounded-none" style={{ background: "#D9CEBC" }} />
                 </div>
               </div>
             ))}
           </div>
         ) : items.length === 0 ? (
           <div className="px-4 py-8 text-center">
-            <p className="text-sm text-muted-foreground">
-              No activity yet — start exploring!
+            <p className="text-sm font-body text-muted-foreground">
+              No activity yet — start exploring to stamp your passport.
             </p>
           </div>
         ) : (
@@ -107,42 +116,37 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
   )
 }
 
-// ── Row ──────────────────────────────────────────────────────────────
-
 function ActivityRow({ item, index }: { item: ActivityItem; index: number }) {
   const ActionIcon = actionIcons[item.action]
   const CategoryIcon = categoryIcons[item.category]
-  const colorClass = actionColors[item.action]
+  const actionColor = actionAccents[item.action]
+  const categoryColor = categoryAccents[item.category]
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -8 }}
+      initial={{ opacity: 0, x: -6 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.04, duration: 0.25 }}
-      className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors cursor-default"
+      transition={{ delay: index * 0.04, duration: 0.3 }}
+      className="flex items-center gap-3 px-4 py-3 hover:bg-parchment-dark/5 transition-colors cursor-default border-b border-border/30 last:border-b-0"
     >
-      {/* Action icon */}
       <div
-        className={cn(
-          "flex items-center justify-center w-8 h-8 rounded-full shrink-0",
-          colorClass
-        )}
+        className="flex items-center justify-center w-8 h-8 rounded-none shrink-0"
+        style={{ backgroundColor: actionColor + "20", color: actionColor }}
       >
         <ActionIcon className="h-4 w-4" />
       </div>
 
-      {/* Description */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm leading-snug truncate">
+        <p className="text-sm leading-snug truncate font-body" style={{ color: "#10262A" }}>
           {describeAction(item)}
         </p>
         <div className="flex items-center gap-1.5 mt-0.5">
-          <CategoryIcon className="h-3 w-3 text-muted-foreground" />
-          <span className="text-[10px] text-muted-foreground capitalize">
+          <CategoryIcon className="h-3 w-3" style={{ color: categoryColor }} />
+          <span className="text-[10px] font-body capitalize opacity-70" style={{ color: "#10262A" }}>
             {item.category}
           </span>
-          <span className="text-[10px] text-muted-foreground">·</span>
-          <span className="text-[10px] text-muted-foreground">
+          <span className="text-[10px] opacity-30" style={{ color: "#10262A" }}>·</span>
+          <span className="text-[10px] font-mono opacity-50" style={{ color: "#10262A" }}>
             {timeAgo(item.timestamp)}
           </span>
         </div>

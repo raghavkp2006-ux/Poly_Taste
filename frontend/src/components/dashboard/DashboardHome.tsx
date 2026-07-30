@@ -4,7 +4,7 @@ import { RecommendationRow } from "./RecommendationRow"
 import { ContinueRow } from "./ContinueRow"
 import { ActivityFeed } from "./ActivityFeed"
 import { TopBar } from "./TopBar"
-import { InteractiveHero } from "./InteractiveHero"
+import { Hero } from "../blocks/hero"
 import {
   mockAnimeRecommendations,
   mockRestaurantRecommendations,
@@ -12,7 +12,7 @@ import {
   mockRecentItems,
   mockActivity,
 } from "./mockData"
-import type { Recommendation, RecentItem, ActivityItem, Category } from "../../types"
+import type { Recommendation, RecentItem, ActivityItem, Category, PageId } from "../../types"
 
 // ── Hook: fetch with mock fallback ──────────────────────────────────
 
@@ -54,12 +54,13 @@ function useFetchWithFallback<T>(
 interface DashboardHomeProps {
   userName: string
   onLogout: () => void
+  onNavigate: (page: PageId) => void
 }
 
-export function DashboardHome({ userName, onLogout }: DashboardHomeProps) {
+export function DashboardHome({ userName, onLogout, onNavigate }: DashboardHomeProps) {
   // Stable fetcher references
   const fetchAnime = useCallback(
-    () => api.recommendations.getByCategory("anime"),
+    () => api.anime.getDashboardRecommendations(),
     []
   )
   const fetchRestaurants = useCallback(
@@ -109,7 +110,18 @@ export function DashboardHome({ userName, onLogout }: DashboardHomeProps) {
 
       <main className="flex-1 p-4 md:p-6 lg:p-8 space-y-8 max-w-[1400px] mx-auto w-full pb-24 md:pb-8">
         
-        <InteractiveHero userName={userName} />
+        <Hero
+          title={<>AI that works for <span className="bg-gradient-to-r from-stage-magenta via-parchment to-stage-magenta bg-clip-text text-transparent font-display">{userName.split(' ')[0]}</span>.</>}
+          subtitle="Discover your next obsession, tailored just for you. Explore personalized anime, uncover hidden culinary gems, and dive into fresh music tracks."
+          actions={[
+            { label: "Explore Anime", href: "#", variant: "default", className: "bg-cel-amber text-ink hover:bg-cel-amber/90", onClick: (e) => { e.preventDefault(); onNavigate('anime') } },
+            { label: "Find Food", href: "#", variant: "default", className: "bg-brick-red text-parchment hover:bg-brick-red/90", onClick: (e) => { e.preventDefault(); onNavigate('restaurants') } },
+            { label: "Discover Music", href: "#", variant: "default", className: "bg-stage-magenta text-parchment hover:bg-stage-magenta/90", onClick: (e) => { e.preventDefault(); onNavigate('music') } }
+          ]}
+          titleClassName="text-5xl md:text-6xl font-extrabold font-display tracking-wide"
+          subtitleClassName="text-lg md:text-xl max-w-[600px] font-body text-muted-foreground"
+          actionsClassName="mt-8"
+        />
 
         <div className="space-y-8">
           {categories.map(({ category, state }) => (
@@ -120,6 +132,7 @@ export function DashboardHome({ userName, onLogout }: DashboardHomeProps) {
               loading={state.loading}
               error={state.error}
               onRetry={state.retry}
+              onNavigate={onNavigate}
             />
           ))}
         </div>

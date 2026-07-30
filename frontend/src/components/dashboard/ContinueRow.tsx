@@ -1,10 +1,7 @@
-import { cn } from "@/lib/utils"
-import { Card, CardContent, Badge, ScrollArea, Skeleton } from "@/components/ui"
+import { Skeleton } from "@/components/ui"
 import { Clock, Tv, UtensilsCrossed, Music, History } from "lucide-react"
 import { motion } from "framer-motion"
 import type { RecentItem, Category } from "../../types"
-
-// ── Helpers ─────────────────────────────────────────────────────────
 
 const categoryIcons: Record<Category, React.ElementType> = {
   anime: Tv,
@@ -12,10 +9,10 @@ const categoryIcons: Record<Category, React.ElementType> = {
   music: Music,
 }
 
-const categoryGradients: Record<Category, string> = {
-  anime: "from-violet-500 to-fuchsia-500",
-  restaurant: "from-amber-500 to-orange-500",
-  music: "from-emerald-500 to-teal-500",
+const categoryAccents: Record<Category, string> = {
+  anime: "#E8A23D",
+  restaurant: "#B23A2E",
+  music: "#C6318C",
 }
 
 function timeAgo(isoDate: string): string {
@@ -31,8 +28,6 @@ function timeAgo(isoDate: string): string {
   return `${days}d ago`
 }
 
-// ── Component ───────────────────────────────────────────────────────
-
 interface ContinueRowProps {
   items: RecentItem[]
   loading: boolean
@@ -42,92 +37,97 @@ export function ContinueRow({ items, loading }: ContinueRowProps) {
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-2.5">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500">
-          <History className="h-4 w-4 text-white" />
+        <div
+          className="flex items-center justify-center w-8 h-8 shrink-0"
+          style={{ backgroundColor: "hsl(var(--sidebar-accent))" }}
+        >
+          <History className="h-4 w-4 text-parchment" />
         </div>
-        <h2 className="text-base font-semibold">Continue where you left off</h2>
+        <h2 className="text-base font-display tracking-wide uppercase text-foreground">
+          Continue where you left off
+        </h2>
       </div>
 
       {loading ? (
         <div className="flex gap-4 overflow-hidden">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="w-44 shrink-0 space-y-2">
-              <Skeleton className="h-24 w-full rounded-xl" />
-              <Skeleton className="h-3 w-3/4" />
-              <Skeleton className="h-3 w-1/2" />
+            <div key={i} className="w-44 shrink-0 rounded-none overflow-hidden ticket-perf">
+              <Skeleton className="h-24 w-full rounded-none" style={{ background: "#EFE6D8" }} />
+              <div className="p-2.5 space-y-2" style={{ background: "#EFE6D8" }}>
+                <Skeleton className="h-3 w-3/4 rounded-none" style={{ background: "#D9CEBC" }} />
+                <Skeleton className="h-2.5 w-1/2 rounded-none" style={{ background: "#D9CEBC" }} />
+              </div>
             </div>
           ))}
         </div>
       ) : items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            Nothing here yet — start exploring to build your history
+        <div
+          className="rounded-none border border-dashed px-4 py-6 text-center"
+          style={{ borderColor: "hsl(var(--border))" }}
+        >
+          <p className="text-sm font-body text-muted-foreground">
+            No history yet — start exploring to build your passport trail.
           </p>
         </div>
       ) : (
-        <ScrollArea className="-mx-1 px-1">
+        <div className="flex gap-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-2">
           {items.map((item, i) => (
             <RecentCard key={item.id} item={item} index={i} />
           ))}
-        </ScrollArea>
+        </div>
       )}
     </section>
   )
 }
 
-// ── Card ─────────────────────────────────────────────────────────────
-
 function RecentCard({ item, index }: { item: RecentItem; index: number }) {
   const Icon = categoryIcons[item.category]
-  const gradient = categoryGradients[item.category]
+  const accent = categoryAccents[item.category]
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05, duration: 0.3 }}
-      whileHover={{ scale: 1.03 }}
-      className="snap-start"
+      initial={{ opacity: 0, y: 8, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{
+        delay: index * 0.06,
+        duration: 0.4,
+        ease: [0.22, 1, 0.36, 1],
+      }}
+      whileHover={{ y: -4, transition: { duration: 0.2 } }}
+      className="snap-start shrink-0 w-[180px] cursor-pointer"
     >
-      <Card className="group w-44 shrink-0 overflow-hidden cursor-pointer transition-shadow duration-300 hover:shadow-md hover:shadow-primary/5">
-        {/* Image / Gradient fallback */}
+      <div
+        className="relative overflow-hidden ticket-perf"
+        style={{ background: "#EFE6D8", border: `1px solid ${accent}40` }}
+      >
         <div className="relative h-24 overflow-hidden">
           {item.imageUrl ? (
             <img
               src={item.imageUrl}
               alt={item.title}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+              className="h-full w-full object-cover"
               loading="lazy"
             />
           ) : (
             <div
-              className={cn(
-                "h-full w-full bg-gradient-to-br flex items-center justify-center",
-                gradient
-              )}
+              className="h-full w-full flex items-center justify-center"
+              style={{ backgroundColor: accent + "20" }}
             >
-              <Icon className="h-8 w-8 text-white/40" />
+              <Icon className="h-8 w-8" style={{ color: accent + "80" }} />
             </div>
           )}
-
-          <Badge
-            variant="secondary"
-            className="absolute top-2 left-2 text-[10px] capitalize"
-          >
-            {item.category}
-          </Badge>
         </div>
 
-        <CardContent className="p-2.5 space-y-1">
-          <h3 className="text-xs font-semibold leading-snug line-clamp-2">
+        <div className="p-2.5 space-y-1">
+          <h3 className="text-xs font-body font-semibold leading-snug line-clamp-2 text-ink">
             {item.title}
           </h3>
-          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-1 text-[10px] text-ink/50 font-mono">
             <Clock className="h-3 w-3" />
             <span>{timeAgo(item.viewedAt)}</span>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </motion.div>
   )
 }

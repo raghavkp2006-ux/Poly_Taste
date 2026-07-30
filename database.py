@@ -16,8 +16,12 @@ Exports
 -------
 Always available:
   get_user(user_id)                         → Optional[Dict]
+  get_user_by_id(user_id)                   → Optional[Dict]
+  get_user_by_google_sub(google_sub)        → Optional[Dict]
   upsert_user(user_id, access_token,
               refresh_token, expires_at)    → None
+  upsert_google_user(google_sub, email,
+                     name, picture_url)    → Dict
   delete_user(user_id)                      → None
 
   add_like(user_id, module, item_id)        → None
@@ -27,7 +31,10 @@ Always available:
 Local-dev mode only (None in Lambda/DynamoDB mode):
   SessionLocal    — SQLAlchemy session factory
   SpotifyUser     — SQLAlchemy ORM model
+  User            — SQLAlchemy ORM model (Google identity)
   UserLike        — SQLAlchemy ORM model
+  Restaurant      — SQLAlchemy ORM model
+  Review          — SQLAlchemy ORM model
   Base            — declarative_base (for create_all)
 """
 
@@ -88,6 +95,28 @@ if _use_local:
                 "expires_at": self.expires_at,
             }
 
+    class User(Base):  # type: ignore[valid-type]
+        """ORM model for Google-identity users."""
+
+        __tablename__ = "users"
+
+        id = Column(Integer, primary_key=True, autoincrement=True)
+        google_sub = Column(String, unique=True, nullable=False, index=True)
+        email = Column(String, nullable=False)
+        name = Column(String, nullable=True)
+        picture_url = Column(String, nullable=True)
+        created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+        def to_dict(self) -> Dict[str, Any]:
+            return {
+                "id": self.id,
+                "google_sub": self.google_sub,
+                "email": self.email,
+                "name": self.name,
+                "picture_url": self.picture_url,
+                "created_at": self.created_at.isoformat() if self.created_at else None,
+            }
+
     class UserLike(Base):  # type: ignore[valid-type]
         """ORM model for per-user cross-module likes (anime, amazon)."""
 
@@ -109,6 +138,15 @@ if _use_local:
                 "item_id": self.item_id,
                 "liked_at": self.liked_at,
             }
+
+    class Restaurant(Base):  # type: ignore[valid-type]
+        __tablename__ = "restaurants"
+        id = Column(Integer, primary_key=True, autoincrement=True)
+        place_id = Column(String, unique=True, nullable=False, index=True)
+        name = Column(String, nullable=False)
+        vicinity = Column(String, nullable=True)
+        rating = Column(Float, nullable=True)
+        types = Column(String, nullable=True)
 
     class Review(Base):  # type: ignore[valid-type]
         __tablename__ = "restaurant_reviews"
@@ -138,6 +176,59 @@ if _use_local:
         try:
             user = db.query(SpotifyUser).filter(SpotifyUser.user_id == user_id).first()
             return user.to_dict() if user else None
+        finally:
+            db.close()
+
+    def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
+        """Look up either a Spotify or Google user by internal user_id."""
+        db = SessionLocal()
+        try:
+            user = db.query(SpotifyUser).filter(SpotifyUser.user_id == user_id).first()
+            if user:
+                return user.to_dict()
+            user = db.query(User).filter(User.id == int(user_id)).first()
+            return user.to_dict() if user else None
+        except (ValueError, TypeError):
+            return None
+        finally:
+            db.close()
+
+    def get_user_by_google_sub(google_sub: str) -> Optional[Dict[str, Any]]:
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.google_sub == google_sub).first()
+            return user.to_dict() if user else None
+        finally:
+            db.close()
+
+    def upsert_google_user(
+        google_sub: str,
+        email: str,
+        name: Optional[str],
+        picture_url: Optional[str],
+    ) -> Dict[str, Any]:
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.google_sub == google_sub).first()
+            if user:
+                user.email = email
+                user.name = name
+                user.picture_url = picture_url
+            else:
+                user = User(
+                    google_sub=google_sub,
+                    email=email,
+                    name=name,
+                    picture_url=picture_url,
+                )
+                db.add(user)
+            db.commit()
+            db.refresh(user)
+            return user.to_dict()
+        except Exception as e:
+            db.rollback()
+            print(f"[database] upsert_google_user({google_sub}): {e}")
+            raise
         finally:
             db.close()
 
@@ -260,6 +351,7 @@ else:
     # Stubs so that imports don't break in Lambda
     SessionLocal = None  # type: ignore[assignment]
     SpotifyUser = None   # type: ignore[assignment]
+    User = None          # type: ignore[assignment]
     UserLike = None      # type: ignore[assignment]
     Restaurant = None    # type: ignore[assignment]
     Review = None        # type: ignore[assignment]
@@ -268,6 +360,7 @@ else:
 
     DYNAMODB_TABLE_NAME = os.getenv("DYNAMODB_TABLE_NAME", "spotify_users")
     USER_LIKES_TABLE_NAME = os.getenv("USER_LIKES_TABLE_NAME", "user_likes")
+    USERS_TABLE_NAME = os.getenv("USERS_TABLE_NAME", "users")
 
     def get_dynamodb_resource():  # noqa: D103
         return boto3.resource("dynamodb")
@@ -281,6 +374,41 @@ else:
         except ClientError as e:
             print(f"[database] get_user({user_id}): {e}")
             return None
+
+    def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
+        return get_user(user_id)
+
+    def get_user_by_google_sub(google_sub: str) -> Optional[Dict[str, Any]]:
+        dynamodb = get_dynamodb_resource()
+        table = dynamodb.Table(USERS_TABLE_NAME)
+        try:
+            response = table.get_item(Key={"google_sub": google_sub})
+            return response.get("Item")
+        except ClientError as e:
+            print(f"[database] get_user_by_google_sub({google_sub}): {e}")
+            return None
+
+    def upsert_google_user(
+        google_sub: str,
+        email: str,
+        name: Optional[str],
+        picture_url: Optional[str],
+    ) -> Dict[str, Any]:
+        dynamodb = get_dynamodb_resource()
+        table = dynamodb.Table(USERS_TABLE_NAME)
+        item: Dict[str, Any] = {
+            "google_sub": google_sub,
+            "email": email,
+            "name": name or "",
+            "picture_url": picture_url or "",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        try:
+            table.put_item(Item=item)
+            return item
+        except ClientError as e:
+            print(f"[database] upsert_google_user({google_sub}): {e}")
+            raise
 
     def upsert_user(
         user_id: str,
@@ -336,7 +464,6 @@ else:
         dynamodb = get_dynamodb_resource()
         table = dynamodb.Table(USER_LIKES_TABLE_NAME)
         try:
-            # Scan filtered by user_id (acceptable for small likes tables)
             filter_expr = "user_id = :uid"
             expr_vals: Dict[str, Any] = {":uid": user_id}
             if module:

@@ -1,12 +1,18 @@
 import { useEffect, useState } from "react"
 import { api } from "./api"
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Switch } from "./components/ui"
-import { Search, Heart, Loader2, Calendar } from "lucide-react"
-import { AnimeGrid } from "./components/anime/AnimeGrid"
-import { AnimeDetail } from "./components/anime/AnimeDetail"
+import { TopographicBackground } from "./components/ui/TopographicBackground"
 import { Component as LoginPage } from "./components/ui/animated-characters-login-page"
 import { Sidebar } from "./components/dashboard/Sidebar"
 import { DashboardHome } from "./components/dashboard/DashboardHome"
+import { AnimeGrid } from "./components/anime/AnimeGrid"
+import { AnimeDetail } from "./components/anime/AnimeDetail"
+import { cn } from "@/lib/utils"
+import {
+  Button,
+  Input,
+  Switch,
+} from "./components/ui"
+import { Search, Loader2 } from "lucide-react"
 import type { PageId } from "./types"
 
 export default function App() {
@@ -14,49 +20,110 @@ export default function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.auth.me()
-      .then(setUser)
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false))
+    const hash = window.location.hash
+    const match = hash.match(/id_token=([^&]+)/)
+
+    if (match) {
+      const idToken = match[1]
+      window.location.hash = ""
+      api.auth.googleCallback(idToken)
+        .then(() => window.location.reload())
+        .catch(() => {
+          window.location.hash = hash
+          checkSession()
+        })
+      return
+    }
+
+    checkSession()
+
+    function checkSession() {
+      api.auth.me()
+        .then(setUser)
+        .catch(() => setUser(null))
+        .finally(() => setLoading(false))
+    }
   }, [])
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="animate-spin h-8 w-8 text-primary" />
-          <span className="text-sm text-muted-foreground">Loading Poly_Taste…</span>
+      <>
+        <TopographicBackground />
+        <div className="flex h-screen items-center justify-center bg-transparent">
+          <div className="flex flex-col items-center gap-4">
+            <div
+              className="w-10 h-10 rounded-none animate-pulse"
+              style={{ backgroundColor: "hsl(var(--sidebar-accent))" }}
+            />
+            <p className="font-mono text-xs tracking-widest uppercase text-muted-foreground">
+              Loading passport…
+            </p>
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
   if (!user) {
-    return <LoginPage />
+    return (
+      <>
+        <TopographicBackground />
+        <LoginPage />
+      </>
+    )
   }
 
-  return <DashboardLayout userId={user.user_id} onLogout={() => {
-    api.auth.logout().then(() => setUser(null))
-  }} />
+  return (
+    <>
+      <TopographicBackground />
+      <DashboardLayout userId={user.user_id} onLogout={() => {
+        api.auth.logout().then(() => setUser(null))
+      }} />
+    </>
+  )
 }
 
 // ── Dashboard Shell ─────────────────────────────────────────────────
 
 function DashboardLayout({ userId, onLogout }: { userId: string; onLogout: () => void }) {
   const [currentPage, setCurrentPage] = useState<PageId>("home")
+  const [selectedAnime, setSelectedAnime] = useState<any | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
+
+  const handleNavigate = (page: PageId, item?: any) => {
+    if (page === "anime") {
+      if (item) {
+        setSelectedAnime({
+          mal_id: item.id,
+          title: item.title,
+          cover_image: item.imageUrl,
+          score: item.score,
+          synopsis: item.reason
+        });
+      } else {
+        setSelectedAnime(null);
+      }
+    }
+    setCurrentPage(page);
+  };
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} onLogout={onLogout} />
+    <div className="flex min-h-screen bg-transparent">
+      <Sidebar
+        currentPage={currentPage}
+        onNavigate={handleNavigate}
+        onLogout={onLogout}
+        collapsed={collapsed}
+        onToggleCollapse={() => setCollapsed(!collapsed)}
+      />
 
-      {/* Main content area — offset by sidebar width */}
-      <div className="flex-1 md:ml-[240px] transition-all duration-300">
+      <div className={cn("flex-1 transition-all duration-300", collapsed ? "md:ml-[72px]" : "md:ml-[240px]")}>
         {currentPage === "home" && (
-          <DashboardHome userName={userId} onLogout={onLogout} />
+          <DashboardHome userName={userId} onLogout={onLogout} onNavigate={handleNavigate} />
         )}
         {currentPage === "anime" && (
           <PageWrapper title="Anime" onLogout={onLogout} userName={userId}>
-            <AnimeModule />
+            <AnimeModule externalSelectedAnime={selectedAnime} onExternalSelectAnime={setSelectedAnime} />
           </PageWrapper>
         )}
         {currentPage === "restaurants" && (
@@ -66,21 +133,7 @@ function DashboardLayout({ userId, onLogout }: { userId: string; onLogout: () =>
         )}
         {currentPage === "music" && (
           <PageWrapper title="Music" onLogout={onLogout} userName={userId}>
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center mb-4">
-                <span className="text-2xl">🎵</span>
-              </div>
-              <h2 className="text-xl font-bold mb-2">Music Recommendations</h2>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                Connect your Spotify account to get personalized music recommendations based on your listening history.
-              </p>
-              <a
-                href={api.auth.loginUrl}
-                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#1DB954] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#1ed760] transition-colors"
-              >
-                Connect Spotify
-              </a>
-            </div>
+            <MusicPlaceholder />
           </PageWrapper>
         )}
         {currentPage === "settings" && (
@@ -93,7 +146,7 @@ function DashboardLayout({ userId, onLogout }: { userId: string; onLogout: () =>
   )
 }
 
-// ── Page wrapper for sub-pages ──────────────────────────────────────
+// ── Page wrappers ────────────────────────────────────────────────────
 
 function PageWrapper({
   children,
@@ -115,34 +168,57 @@ function PageWrapper({
   )
 }
 
-// ── Settings placeholder ────────────────────────────────────────────
-
 function SettingsPlaceholder() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h2 className="text-2xl font-bold">Settings</h2>
-      <Card>
-        <CardHeader>
-          <CardTitle>Preferences</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Settings page coming soon. You can toggle dark mode from the top bar on the Home page.
+      <h2 className="text-2xl font-display tracking-wide text-foreground">Preferences</h2>
+      <div className="border border-border/40 overflow-hidden" style={{ background: "hsl(var(--card))" }}>
+        <div className="p-6 space-y-4">
+          <p className="text-sm font-body text-muted-foreground">
+            Toggle dark mode from the top bar on the Home page. More options stamp in soon.
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }
 
+function MusicPlaceholder() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
+      <div
+        className="w-14 h-14 flex items-center justify-center"
+        style={{ backgroundColor: "#C6318C" }}
+      >
+        <span className="text-2xl text-parchment font-display">♪</span>
+      </div>
+      <h2 className="text-xl font-display tracking-wide text-foreground">No tracks matched yet</h2>
+      <p className="text-sm font-body text-muted-foreground max-w-sm">
+        Connect Spotify to start your music passport — we'll stamp every listen.
+      </p>
+      <a
+        href={api.auth.loginUrl}
+        className="inline-flex items-center gap-2 rounded-none px-5 py-2.5 text-sm font-display tracking-wide text-parchment transition-opacity hover:opacity-90"
+        style={{ backgroundColor: "#C6318C" }}
+      >
+        Connect Spotify
+      </a>
+    </div>
+  )
+}
 
-function AnimeModule() {
+// ── Anime sub-module ────────────────────────────────────────────────
+
+function AnimeModule({ externalSelectedAnime, onExternalSelectAnime }: { externalSelectedAnime?: any, onExternalSelectAnime?: (anime: any) => void }) {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<any[]>([])
   const [upcoming, setUpcoming] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingUpcoming, setLoadingUpcoming] = useState(true)
-  const [selectedAnime, setSelectedAnime] = useState<any | null>(null)
+  const [localSelectedAnime, setLocalSelectedAnime] = useState<any | null>(null)
+
+  const selectedAnime = externalSelectedAnime !== undefined ? externalSelectedAnime : localSelectedAnime
+  const setSelectedAnime = onExternalSelectAnime || setLocalSelectedAnime
 
   useEffect(() => {
     api.anime.getUpcoming()
@@ -174,23 +250,26 @@ function AnimeModule() {
 
   return (
     <div className="space-y-8 animate-in fade-in">
-      <div className="flex items-center justify-between rounded-xl border bg-card p-4 shadow-sm">
+      <div className="flex items-center justify-between rounded-none border border-border/40 p-4" style={{ background: "hsl(var(--card))" }}>
         <form onSubmit={handleSearch} className="flex gap-2 w-full max-w-md">
           <Input placeholder="Search anime by title..." value={query} onChange={e => setQuery(e.target.value)} />
           <Button type="submit"><Search className="h-4 w-4 mr-2" /> Search</Button>
         </form>
       </div>
-      
+
       {loading ? (
         <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-primary" /></div>
       ) : showResults ? (
         <section>
-          <h2 className="text-2xl font-bold mb-4">Search Results</h2>
+          <h2 className="text-2xl font-display tracking-wide text-foreground mb-4">Search Results</h2>
           <AnimeGrid animes={results} onSelect={setSelectedAnime} />
         </section>
       ) : (
         <section>
-          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2"><Calendar className="w-6 h-6" /> Upcoming Anime</h2>
+          <h2 className="text-2xl font-display tracking-wide text-foreground mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 inline-block" style={{ backgroundColor: "#E8A23D" }} />
+            Upcoming Anime
+          </h2>
           {loadingUpcoming ? (
             <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-primary" /></div>
           ) : (
@@ -202,18 +281,58 @@ function AnimeModule() {
   )
 }
 
+// ── Restaurant sub-module ───────────────────────────────────────────
+
 function RestaurantModule() {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [personalize, setPersonalize] = useState(false)
+  const [lat, setLat] = useState<number | null>(null)
+  const [lng, setLng] = useState<number | null>(null)
+  const [manualLocation, setManualLocation] = useState("")
+  const [locationStatus, setLocationStatus] = useState<"idle" | "prompting" | "granted" | "denied">("idle")
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationStatus("denied")
+      return
+    }
+
+    setLocationStatus("prompting")
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLat(position.coords.latitude)
+        setLng(position.coords.longitude)
+        setLocationStatus("granted")
+      },
+      (error) => {
+        console.warn("[geolocation]", error.message)
+        setLocationStatus("denied")
+      },
+      { timeout: 10000, maximumAge: 300000 }
+    )
+  }, [])
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!query) return
     setLoading(true)
     try {
-      const res = await api.restaurants.search(query)
+      const res = await api.restaurants.search(query, lat ?? undefined, lng ?? undefined)
+      setResults(res.results || [])
+    } catch (e) {
+      console.error(e)
+    }
+    setLoading(false)
+  }
+
+  const handleManualSearch = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!manualLocation.trim() || !query) return
+    setLoading(true)
+    try {
+      const res = await api.restaurants.search(query, undefined, undefined, manualLocation.trim())
       setResults(res.results || [])
     } catch (e) {
       console.error(e)
@@ -232,45 +351,86 @@ function RestaurantModule() {
     setLoading(false)
   }
 
-  const handleLike = async (id: string) => {
-    await api.restaurants.like(id)
-    alert("Liked!")
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between rounded-lg border p-4">
-        <form onSubmit={handleSearch} className="flex gap-2 w-full max-w-md">
-          <Input placeholder="Search restaurants..." value={query} onChange={e => setQuery(e.target.value)} />
-          <Button type="submit"><Search className="h-4 w-4" /></Button>
-        </form>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">Personalize</label>
-          <Switch checked={personalize} onCheckedChange={setPersonalize} />
+      <div className="rounded-none border border-border/40 p-4" style={{ background: "hsl(var(--card))" }}>
+        {/* Location banner */}
+        <div className="mb-4">
+          {locationStatus === "prompting" && (
+            <div className="flex items-center gap-2 text-xs font-mono" style={{ color: "#E8A23D" }}>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Requesting your location…</span>
+            </div>
+          )}
+          {locationStatus === "granted" && lat && lng && (
+            <div className="flex items-center gap-2 text-xs font-mono" style={{ color: "#4A9B8E" }}>
+              <span>Location locked — searching near {lat.toFixed(2)}, {lng.toFixed(2)}</span>
+            </div>
+          )}
+          {locationStatus === "denied" && (
+            <div className="space-y-2">
+              <p className="text-xs font-mono" style={{ color: "#B23A2E" }}>
+                Location access denied — enter a city or ZIP to search nearby.
+              </p>
+              <form onSubmit={handleManualSearch} className="flex gap-2">
+                <Input
+                  placeholder="City or ZIP code"
+                  value={manualLocation}
+                  onChange={(e) => setManualLocation(e.target.value)}
+                  className="h-8 text-xs"
+                />
+                <Button type="submit" size="sm" variant="outline" className="h-8 text-xs">Set</Button>
+              </form>
+            </div>
+          )}
+        </div>
+
+        {/* Search + Personalize row */}
+        <div className="flex items-center justify-between gap-4">
+          <form onSubmit={handleSearch} className="flex gap-2 w-full max-w-md">
+            <Input placeholder="Search restaurants..." value={query} onChange={e => setQuery(e.target.value)} />
+            <Button type="submit"><Search className="h-4 w-4" /></Button>
+          </form>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-body text-muted-foreground">Personalize</label>
+            <Switch checked={personalize} onCheckedChange={setPersonalize} />
+          </div>
         </div>
       </div>
-      
-      {loading && <Loader2 className="animate-spin mx-auto mt-8" />}
-      
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {results.map((restaurant) => (
-          <Card key={restaurant.place_id || restaurant.id} className="overflow-hidden flex flex-col justify-between">
-            <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-base line-clamp-2">{restaurant.name}</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <div className="mb-2">
-                <p className="text-sm font-bold">{restaurant.rating ? `${restaurant.rating} ★` : 'No rating'}</p>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{restaurant.types ? restaurant.types.join(", ") : ""}</p>
+
+      {loading && <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.isArray(results) && results.map((restaurant) => {
+          const id = restaurant.place_id || restaurant.id
+          return (
+            <div key={id} className="ticket-perf overflow-hidden cursor-pointer transition-shadow duration-300 hover:shadow-lg" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
+              <div className="p-4 pb-3 space-y-2">
+                <h3 className="text-sm font-body font-semibold leading-snug line-clamp-2" style={{ color: "hsl(var(--card-foreground))" }}>
+                  {restaurant.name}
+                </h3>
+                <p className="text-xs font-mono" style={{ color: "#B23A2E" }}>
+                  {restaurant.rating ? `${restaurant.rating} ★` : 'No rating'}
+                </p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono">
+                  {Array.isArray(restaurant.types) ? restaurant.types.slice(0, 3).join(" · ") : ""}
+                </p>
+                <p className="text-xs text-muted-foreground line-clamp-2 font-body">
+                  {restaurant.vicinity || restaurant.formatted_address}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground mb-4 line-clamp-3">{restaurant.vicinity || restaurant.formatted_address}</p>
-              <div className="flex flex-col gap-2">
-                <Button size="sm" variant="outline" onClick={() => handleRecommend(restaurant.place_id || restaurant.id)}>Similar</Button>
-                <Button size="sm" variant="ghost" onClick={() => handleLike(restaurant.place_id || restaurant.id)}><Heart className="mr-2 h-4 w-4" /> Like</Button>
+              <div className="px-4 pb-4 flex flex-col gap-2">
+                <button
+                  onClick={() => handleRecommend(id)}
+                  className="text-[11px] font-mono uppercase tracking-wider px-3 py-1.5 transition-opacity hover:opacity-80 rounded-none"
+                  style={{ backgroundColor: "#B23A2E", color: "#EFE6D8" }}
+                >
+                  Similar
+                </button>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   )
@@ -288,60 +448,54 @@ export function TasteProfileModule() {
   }, [])
 
   if (loading) return <Loader2 className="animate-spin mx-auto mt-8" />
-  
-  if (!profile) return <p className="text-center text-muted-foreground">Failed to load taste profile.</p>
+
+  if (!profile) return <p className="text-center text-muted-foreground font-body">Failed to load taste profile.</p>
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Top Genres</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2">
-            {profile.top_genres.map((g: any) => (
-              <li key={g.genre} className="flex justify-between">
-                <span>{g.genre}</span>
-                <span className="font-medium">{Math.round(g.score * 100)}%</span>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="border border-border/40 overflow-hidden" style={{ background: "hsl(var(--card))" }}>
+        <div className="px-5 py-4 border-b border-border/30">
+          <h3 className="text-sm font-display tracking-wide uppercase" style={{ color: "hsl(var(--card-foreground))" }}>Top Genres</h3>
+        </div>
+        <div className="p-5 space-y-3">
+          {profile.top_genres.map((g: any) => (
+            <li key={g.genre} className="flex justify-between font-body text-sm" style={{ color: "hsl(var(--card-foreground))" }}>
+              <span>{g.genre}</span>
+              <span className="font-mono text-xs">{Math.round(g.score * 100)}%</span>
+            </li>
+          ))}
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Top Sentiments</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2">
-            {Object.entries(profile.top_sentiments || {}).map(([s, score]: any) => (
-              <li key={s} className="flex justify-between capitalize">
-                <span>{s}</span>
-                <span className="font-medium">{Math.round(score * 100)}%</span>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-      
-      <Card className="md:col-span-2">
-        <CardHeader>
-          <CardTitle>Likes Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-8">
-            <div>
-              <p className="text-2xl font-bold">{profile.likes_count?.anime || 0}</p>
-              <p className="text-sm text-muted-foreground">Anime Liked</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{profile.likes_count?.restaurants || 0}</p>
-              <p className="text-sm text-muted-foreground">Restaurants Liked</p>
-            </div>
+      <div className="border border-border/40 overflow-hidden" style={{ background: "hsl(var(--card))" }}>
+        <div className="px-5 py-4 border-b border-border/30">
+          <h3 className="text-sm font-display tracking-wide uppercase" style={{ color: "hsl(var(--card-foreground))" }}>Top Sentiments</h3>
+        </div>
+        <div className="p-5 space-y-3">
+          {Object.entries(profile.top_sentiments || {}).map(([s, score]: any) => (
+            <li key={s} className="flex justify-between font-body text-sm capitalize" style={{ color: "hsl(var(--card-foreground))" }}>
+              <span>{s}</span>
+              <span className="font-mono text-xs">{Math.round(score * 100)}%</span>
+            </li>
+          ))}
+        </div>
+      </div>
+
+      <div className="md:col-span-2 border border-border/40 overflow-hidden" style={{ background: "hsl(var(--card))" }}>
+        <div className="px-5 py-4 border-b border-border/30">
+          <h3 className="text-sm font-display tracking-wide uppercase" style={{ color: "hsl(var(--card-foreground))" }}>Likes Activity</h3>
+        </div>
+        <div className="p-5 flex gap-8">
+          <div>
+            <p className="text-2xl font-display" style={{ color: "hsl(var(--card-foreground))" }}>{profile.likes_count?.anime || 0}</p>
+            <p className="text-xs font-body text-muted-foreground">Anime Liked</p>
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <p className="text-2xl font-display" style={{ color: "hsl(var(--card-foreground))" }}>{profile.likes_count?.restaurants || 0}</p>
+            <p className="text-xs font-body text-muted-foreground">Restaurants Liked</p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
