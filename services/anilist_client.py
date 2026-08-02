@@ -395,3 +395,36 @@ def fetch_reviews_by_mal_id(mal_id: int, per_page: int = 5) -> Dict[str, Any]:
         return _reviews_cache[mal_id]
 
     return res
+
+# ---------------------------------------------------------------------------
+# Metadata (Cold-Start)
+# ---------------------------------------------------------------------------
+
+_METADATA_QUERY = """
+query ($malId: Int) {
+  Media(idMal: $malId, type: ANIME) {
+    id
+    idMal
+    description(asHtml: false)
+    genres
+    tags {
+      name
+    }
+  }
+}
+"""
+
+def fetch_anime_metadata(mal_id: int) -> Optional[Dict[str, Any]]:
+    """
+    Fetch anime metadata for cold-start embedding generation.
+    Retrieves description, genres, and tags from AniList.
+    """
+    data = _anilist_post(
+        _METADATA_QUERY,
+        {"malId": mal_id},
+    )
+    if data and data.get("data", {}).get("Media"):
+        return data["data"]["Media"]
+    
+    print(f"[anilist] metadata unavailable for mal_id={mal_id}")
+    return None

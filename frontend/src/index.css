@@ -1,117 +1,233 @@
-@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=IBM+Plex+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+/* ── Google Fonts: Space Grotesk (display) · Inter (body) · JetBrains Mono (metadata) ── */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════════
+   BASE LAYER — CSS custom properties (dark graphite system)
+   ═══════════════════════════════════════════════════════════════════ */
 @layer base {
   :root {
-    /* ── Palette: ink + parchment + category accents ────────────────── */
-    --background: 193 45% 11%;
-    --foreground: 37 46% 88%;
-    --card: 37 46% 88%;
-    --card-foreground: 193 45% 11%;
-    --popover: 37 46% 88%;
-    --popover-foreground: 193 45% 11%;
+    /* ── Graphite base ───────────────────────────────────────────── */
+    --background:         215 33% 6%;   /* #0A0E14 cool graphite-ink  */
+    --foreground:         218 17% 91%;  /* #E4E7EC primary text       */
 
-    --primary: 323 68% 44%;
-    --primary-foreground: 37 46% 88%;
+    /* ── Glass panels ────────────────────────────────────────────── */
+    --card:               213 26% 10%;  /* #12181F panel tint         */
+    --card-foreground:    218 17% 91%;
+    --popover:            213 26% 10%;
+    --popover-foreground: 218 17% 91%;
 
-    --secondary: 193 20% 15%;
-    --secondary-foreground: 37 46% 88%;
+    /* ── Primary = music indigo (electric #7C6CF0) ───────────────── */
+    --primary:            247 81% 68%;
+    --primary-foreground: 0 0% 100%;
 
-    --muted: 193 20% 16%;
-    --muted-foreground: 193 8% 68%;
+    /* ── Secondary = slightly lighter panel ─────────────────────── */
+    --secondary:          213 22% 14%;
+    --secondary-foreground: 218 17% 91%;
 
-    --accent: 36 74% 60%;
-    --accent-foreground: 193 45% 11%;
+    /* ── Muted ───────────────────────────────────────────────────── */
+    --muted:              213 22% 14%;
+    --muted-foreground:   211 10% 53%;  /* #7B8794                   */
 
-    --destructive: 4 62% 39%;
-    --destructive-foreground: 37 46% 88%;
+    /* ── Accent = food copper-gold #E3A857 ───────────────────────── */
+    --accent:             35 71% 62%;
+    --accent-foreground:  213 26% 8%;
 
-    --border: 37 10% 30%;
-    --input: 193 20% 15%;
-    --ring: 36 74% 60%;
-    --radius: 0.625rem;
+    /* ── Destructive ─────────────────────────────────────────────── */
+    --destructive:        4 70% 55%;
+    --destructive-foreground: 0 0% 100%;
 
-    /* Sidebar */
-    --sidebar: 193 40% 8%;
-    --sidebar-foreground: 37 10% 78%;
-    --sidebar-accent: 323 68% 44%;
+    /* ── Borders & inputs ────────────────────────────────────────── */
+    --border:             218 15% 18%;  /* subtle hairline            */
+    --input:              213 26% 10%;
+    --ring:               247 81% 68%;  /* indigo focus ring          */
+    --radius:             0.75rem;
 
-    /* Category Threads */
-    --color-music: 323 68% 44%;
-    --color-anime: 36 74% 60%;
-    --color-food: 4 62% 39%;
-    --color-convergence: 246 15% 58%;
+    /* ── Sidebar rail ────────────────────────────────────────────── */
+    --sidebar:            213 30% 8%;
+    --sidebar-foreground: 218 17% 91%;
+    --sidebar-accent:     247 81% 68%;  /* music indigo               */
+
+    /* ── Domain accents (HSL, no hsl() wrapper — used by Tailwind) ─ */
+    --color-music:        247 81% 68%;  /* #7C6CF0 electric indigo    */
+    --color-anime:        12 100% 68%;  /* #FF7A59 warm flame-coral   */
+    --color-food:         35 71% 62%;   /* #E3A857 copper-gold        */
+    --color-convergence:  247 81% 68%;  /* starts indigo → #3ED6C4    */
+
+    /* ── Domain accent raw hex (for inline styles & JS) ─────────── */
+    --music-hex:  #7C6CF0;
+    --anime-hex:  #FF7A59;
+    --food-hex:   #E3A857;
   }
 
+  /* Dark is always-on for this app (TopBar forces .dark) */
   .dark {
-    --background: 193 45% 11%;
-    --foreground: 37 46% 88%;
-    --card: 37 46% 88%;
-    --card-foreground: 193 45% 11%;
-    --popover: 37 46% 88%;
-    --popover-foreground: 193 45% 11%;
-
-    --primary: 323 68% 44%;
-    --primary-foreground: 37 46% 88%;
-
-    --secondary: 193 20% 15%;
-    --secondary-foreground: 37 46% 88%;
-
-    --muted: 193 20% 16%;
-    --muted-foreground: 193 8% 68%;
-
-    --accent: 36 74% 60%;
-    --accent-foreground: 193 45% 11%;
-
-    --destructive: 4 62% 39%;
-    --destructive-foreground: 37 46% 88%;
-
-    --border: 37 10% 30%;
-    --input: 193 20% 15%;
-    --ring: 36 74% 60%;
-
-    /* Sidebar */
-    --sidebar: 193 40% 8%;
-    --sidebar-foreground: 37 10% 78%;
-    --sidebar-accent: 323 68% 44%;
-
-    /* Category Threads */
-    --color-music: 323 68% 44%;
-    --color-anime: 36 74% 60%;
-    --color-food: 4 62% 39%;
-    --color-convergence: 246 15% 58%;
+    --background:         215 33% 6%;
+    --foreground:         218 17% 91%;
+    --card:               213 26% 10%;
+    --card-foreground:    218 17% 91%;
+    --popover:            213 26% 10%;
+    --popover-foreground: 218 17% 91%;
+    --primary:            247 81% 68%;
+    --primary-foreground: 0 0% 100%;
+    --secondary:          213 22% 14%;
+    --secondary-foreground: 218 17% 91%;
+    --muted:              213 22% 14%;
+    --muted-foreground:   211 10% 53%;
+    --accent:             35 71% 62%;
+    --accent-foreground:  213 26% 8%;
+    --destructive:        4 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border:             218 15% 18%;
+    --input:              213 26% 10%;
+    --ring:               247 81% 68%;
+    --sidebar:            213 30% 8%;
+    --sidebar-foreground: 218 17% 91%;
+    --sidebar-accent:     247 81% 68%;
+    --color-music:        247 81% 68%;
+    --color-anime:        12 100% 68%;
+    --color-food:         35 71% 62%;
+    --color-convergence:  247 81% 68%;
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   BASE RESETS
+   ═══════════════════════════════════════════════════════════════════ */
 @layer base {
   * {
     @apply border-border;
   }
+
+  html {
+    color-scheme: dark;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    /* Ensure the ambient background always shows */
+    background-color: #0A0E14;
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   UTILITY LAYER — Glass primitives & domain glow helpers
+   ═══════════════════════════════════════════════════════════════════ */
 @layer utilities {
-  /* ── Ticket-stub perforation ─────────────────────────────────────── */
-  .ticket-perf {
+
+  /* ── Glass surfaces ──────────────────────────────────────────────── */
+
+  /* Primary frosted glass panel (sidebar, modals, overlays) */
+  .glass-panel {
+    background: rgba(18, 24, 31, 0.80);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  /* Card glass (signal cards, activity rows) */
+  .glass-card {
+    background: rgba(18, 24, 31, 0.70);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  /* ── Hairline gradient border ────────────────────────────────────── */
+
+  /* Wrap content in this and add .gradient-border — it draws a 1px gradient frame */
+  .gradient-border {
     position: relative;
-    border-radius: 0;
+    background: rgba(18, 24, 31, 0.70);
+    border-radius: 0.75rem;
+    isolation: isolate;
   }
-  .ticket-perf::after {
-    content: "";
+  .gradient-border::before {
+    content: '';
     position: absolute;
-    bottom: -1px;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background-image: radial-gradient(circle, #10262A 55%, transparent 55%);
-    background-size: 8px 8px;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0.04) 50%,
+      rgba(255, 255, 255, 0.02) 100%
+    );
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: destination-out;
+    mask-composite: exclude;
+    pointer-events: none;
   }
+
+  /* ── Domain glow edges (left inset bar + ambient glow) ──────────── */
+
+  .glow-edge-music {
+    box-shadow:
+      inset 3px 0 0 #7C6CF0,
+      0 0 24px rgba(124, 108, 240, 0.12),
+      0 2px 12px rgba(124, 108, 240, 0.08);
+  }
+
+  .glow-edge-anime {
+    box-shadow:
+      inset 3px 0 0 #FF7A59,
+      0 0 24px rgba(255, 122, 89, 0.12),
+      0 2px 12px rgba(255, 122, 89, 0.08);
+  }
+
+  .glow-edge-food {
+    box-shadow:
+      inset 3px 0 0 #E3A857,
+      0 0 24px rgba(227, 168, 87, 0.12),
+      0 2px 12px rgba(227, 168, 87, 0.08);
+  }
+
+  /* ── Domain glow hover amplifiers ───────────────────────────────── */
+
+  .hover\:glow-music:hover {
+    box-shadow:
+      inset 3px 0 0 #7C6CF0,
+      0 0 32px rgba(124, 108, 240, 0.22),
+      0 4px 20px rgba(124, 108, 240, 0.14);
+  }
+  .hover\:glow-anime:hover {
+    box-shadow:
+      inset 3px 0 0 #FF7A59,
+      0 0 32px rgba(255, 122, 89, 0.22),
+      0 4px 20px rgba(255, 122, 89, 0.14);
+  }
+  .hover\:glow-food:hover {
+    box-shadow:
+      inset 3px 0 0 #E3A857,
+      0 0 32px rgba(227, 168, 87, 0.22),
+      0 4px 20px rgba(227, 168, 87, 0.14);
+  }
+
+  /* ── Convergence gradient (signature moment only) ────────────────── */
+
+  .gradient-convergence {
+    background: linear-gradient(135deg, #7C6CF0 0%, #3ED6C4 100%);
+  }
+
+  .text-gradient-convergence {
+    background: linear-gradient(135deg, #7C6CF0 0%, #3ED6C4 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* ── Scrollbar hide ──────────────────────────────────────────────── */
 
   .scrollbar-hide {
     -ms-overflow-style: none;
@@ -119,5 +235,25 @@
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* ── Skeleton shimmer (dark-tinted) ──────────────────────────────── */
+
+  .skeleton-dark {
+    background: linear-gradient(
+      110deg,
+      rgba(18, 24, 31, 0.8) 8%,
+      rgba(30, 40, 55, 0.9) 18%,
+      rgba(18, 24, 31, 0.8) 33%
+    );
+    background-size: 200% 100%;
+    animation: gradient 1.5s linear infinite;
+  }
+
+  /* ── Focus ring override for keyboard nav ────────────────────────── */
+
+  .focus-visible-ring:focus-visible {
+    outline: 2px solid #7C6CF0;
+    outline-offset: 2px;
   }
 }

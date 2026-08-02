@@ -43,6 +43,11 @@ from models.anime_dnn import AnimeAutoEncoder
 from services.anilist_client import fetch_reviews_by_mal_id, fetch_upcoming_anime
 from services.jikan_client import get_catalog_from_s3
 
+from services.anime_recommender import (
+    vectorizer, anime_model, device, anime_data_map, 
+    latent_matrix, latent_ids, get_or_compute_embedding
+)
+
 load_dotenv()
 
 router = APIRouter(prefix="/anime", tags=["anime"])
@@ -74,74 +79,16 @@ def _resolve_query(value: Any, fallback: int) -> int:
 catalog = get_catalog_from_s3()
 mal_id_to_index = {anime["mal_id"]: i for i, anime in enumerate(catalog)}
 
-tf_idf_matrix = None
-vectorizer_path = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data",
-    "models",
-    "tfidf_vectorizer.pkl"
-)
-vectorizer = None
-if os.path.exists(vectorizer_path):
-    with open(vectorizer_path, 'rb') as f:
-        vectorizer = pickle.load(f)
-
+latent_catalog = None
 if catalog and vectorizer is not None:
     texts = [
         f"{anime.get('synopsis', '')} {' '.join(anime.get('genres', []))}"
         for anime in catalog
     ]
     tf_idf_matrix = vectorizer.transform(texts).toarray()
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-anime_model = AnimeAutoEncoder(input_dim=1000, latent_dim=32).to(device)
-
-_model_path = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data",
-    "models",
-    "anime_model.pth",
-)
-if os.path.exists(_model_path):
-    anime_model.load_state_dict(torch.load(_model_path, map_location=device))
-anime_model.eval()
-
-latent_catalog = None
-if tf_idf_matrix is not None:
     with torch.no_grad():
         tf_idf_tensor = torch.tensor(tf_idf_matrix, dtype=torch.float32).to(device)
         latent_catalog = anime_model.encode(tf_idf_tensor)
-
-# ---------------------------------------------------------------------------
-# Cold-start: Load precomputed embeddings (15,000 dataset)
-# ---------------------------------------------------------------------------
-_pkl_path = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data",
-    "processed",
-    "anime_embeddings.pkl",
-)
-
-anime_data_map = {}
-latent_matrix = None
-latent_ids = []
-
-if os.path.exists(_pkl_path):
-    with open(_pkl_path, 'rb') as f:
-        anime_embeddings = pickle.load(f)
-        
-    for k, v in anime_embeddings.items():
-        anime_data_map[k] = v
-        latent_ids.append(k)
-        
-    if latent_ids:
-        # Move to CPU tensor for fast batch cosine similarity 
-        # (CPU is fine for 15k inference, avoiding GPU memory context issues in FastAPI)
-        import numpy as np
-        latent_matrix = torch.tensor(
-            np.array([anime_data_map[aid]['embedding'] for aid in latent_ids]),
-            dtype=torch.float32
-        )
 
 # ---------------------------------------------------------------------------
 # Cold-start: ANN RSS feed (cached per Lambda instance)
@@ -216,13 +163,24 @@ def get_recommendations(request: AnimeRecRequest, limit: int = Query(default=10,
     if latent_matrix is None:
         raise HTTPException(status_code=500, detail="Anime embeddings not loaded")
         
-    valid_ids = [aid for aid in request.liked_ids if aid in anime_data_map]
+    vectors = []
+    valid_ids = []
+    for aid in request.liked_ids:
+        try:
+            emb, _, _ = get_or_compute_embedding(int(aid))
+            if emb is not None:
+                vectors.append(emb)
+                valid_ids.append(aid)
+        except Exception as e:
+            print(f"Error computing embedding for {aid}: {e}")
+            
     if not valid_ids:
         return {"recommendations": []}
         
     # Create taste vector (average of liked anime embeddings)
-    vectors = [anime_data_map[aid]['embedding'] for aid in valid_ids]
-    taste_vector = torch.tensor(vectors, dtype=torch.float32).mean(dim=0, keepdim=True)
+    # Using numpy instead of torch to avoid device mismatch issues with the list of numpy arrays
+    import numpy as np
+    taste_vector = torch.tensor(np.array(vectors), dtype=torch.float32).mean(dim=0, keepdim=True)
     
     # Compute cosine similarity
     cos = nn.CosineSimilarity(dim=1, eps=1e-6)
@@ -295,35 +253,18 @@ def recommend_anime(
         except Exception:
             pass
 
-    # First try the small catalog (Cold-start model)
-    if mal_id in mal_id_to_index and latent_catalog is not None:
-        seed_idx = mal_id_to_index[mal_id]
-        seed_latent = latent_catalog[seed_idx].unsqueeze(0)  # (1, 32)
+    # First try to get or compute embedding
+    embedding, title, genres = get_or_compute_embedding(mal_id)
+    recommendations = []
+
+    if embedding is not None:
+        # We have a valid embedding
+        seed_latent_cpu = torch.tensor(embedding, dtype=torch.float32).unsqueeze(0)
         
         cos = nn.CosineSimilarity(dim=1, eps=1e-6)
-        similarities = cos(seed_latent, latent_catalog)  # (N,)
+        similarities = cos(seed_latent_cpu, latent_matrix)
         scores, indices = torch.topk(similarities, n + 1)
         
-        recommendations = []
-        for score, idx in zip(scores, indices):
-            idx = idx.item()
-            if idx == seed_idx:
-                continue
-            rec_anime = catalog[idx].copy()
-            rec_anime["similarity_score"] = round(score.item(), 4)
-            recommendations.append(rec_anime)
-            
-            if len(recommendations) == n:
-                break
-    # Fallback to the 15k dataset (latent_matrix)
-    elif str(mal_id) in anime_data_map and latent_matrix is not None:
-        seed_latent = torch.tensor(anime_data_map[str(mal_id)]["embedding"], dtype=torch.float32).unsqueeze(0)
-        
-        cos = nn.CosineSimilarity(dim=1, eps=1e-6)
-        similarities = cos(seed_latent, latent_matrix)
-        scores, indices = torch.topk(similarities, n + 1)
-        
-        recommendations = []
         for score, idx in zip(scores, indices):
             idx = idx.item()
             aid = latent_ids[idx]
@@ -332,15 +273,46 @@ def recommend_anime(
             rec_anime = {
                 "mal_id": int(aid),
                 "title": anime_data_map[aid]["title"],
-                "image_url": anime_data_map[aid]["imageUrl"],
-                "similarity_score": round(score.item(), 4)
+                "image_url": anime_data_map[aid].get("imageUrl", ""),
+                "similarity_score": round(score.item(), 4),
+                "genres": anime_data_map[aid].get("genres", [])
             }
             recommendations.append(rec_anime)
             
             if len(recommendations) == n:
                 break
     else:
-        raise HTTPException(status_code=404, detail="Anime not found in catalog or dataset")
+        # Fallback to genre overlap for thin metadata
+        if genres:
+            seed_genres = set(g.lower() for g in genres)
+            scored_candidates = []
+            for aid in latent_ids:
+                if aid == str(mal_id):
+                    continue
+                cand_genres = set(g.lower() for g in anime_data_map[aid].get('genres', []))
+                if not cand_genres:
+                    continue
+                
+                intersection = len(seed_genres.intersection(cand_genres))
+                union = len(seed_genres.union(cand_genres))
+                score = intersection / union if union > 0 else 0
+                
+                if score > 0:
+                    scored_candidates.append((score, aid))
+            
+            scored_candidates.sort(reverse=True, key=lambda x: x[0])
+            for score, aid in scored_candidates[:n]:
+                rec_anime = {
+                    "mal_id": int(aid),
+                    "title": anime_data_map[aid]["title"],
+                    "image_url": anime_data_map[aid].get("imageUrl", ""),
+                    "similarity_score": round(score, 4),
+                    "reason": "Based on genre similarity (thin metadata)",
+                    "genres": anime_data_map[aid].get("genres", [])
+                }
+                recommendations.append(rec_anime)
+        else:
+            raise HTTPException(status_code=404, detail="Anime not found and no metadata available for fallback")
 
     # --- Optional: personalized re-ranking ---
     if personalize and user_id:

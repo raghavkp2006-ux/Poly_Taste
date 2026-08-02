@@ -1,36 +1,40 @@
-import {
-  Tv,
-  UtensilsCrossed,
-  Music,
-  AlertCircle,
-} from "lucide-react"
+import { Tv, UtensilsCrossed, Music, AlertCircle } from "lucide-react"
 import { motion } from "framer-motion"
 import type { Recommendation, Category, PageId } from "../../types"
 
-// ── Category meta ───────────────────────────────────────────────────
+// ── Domain meta ──────────────────────────────────────────────────────
 
-const categoryMeta: Record<
-  Category,
-  { icon: React.ElementType; color: string; label: string }
-> = {
+const DOMAIN: Record<Category, {
+  icon: React.ElementType
+  color: string
+  glowEdge: string
+  glowBg: string
+  label: string
+}> = {
   anime: {
-    icon: Tv,
-    color: "#E8A23D",
-    label: "Anime",
+    icon:     Tv,
+    color:    "#FF7A59",
+    glowEdge: "glow-edge-anime",
+    glowBg:   "rgba(255,122,89,0.08)",
+    label:    "Anime",
   },
   restaurant: {
-    icon: UtensilsCrossed,
-    color: "#B23A2E",
-    label: "Restaurants",
+    icon:     UtensilsCrossed,
+    color:    "#E3A857",
+    glowEdge: "glow-edge-food",
+    glowBg:   "rgba(227,168,87,0.08)",
+    label:    "Food",
   },
   music: {
-    icon: Music,
-    color: "#C6318C",
-    label: "Music",
+    icon:     Music,
+    color:    "#7C6CF0",
+    glowEdge: "glow-edge-music",
+    glowBg:   "rgba(124,108,240,0.08)",
+    label:    "Music",
   },
 }
 
-// ── Main component ──────────────────────────────────────────────────
+// ── Main component ───────────────────────────────────────────────────
 
 interface RecommendationRowProps {
   category: Category
@@ -49,54 +53,57 @@ export function RecommendationRow({
   onRetry,
   onNavigate,
 }: RecommendationRowProps) {
-  const meta = categoryMeta[category]
+  const meta = DOMAIN[category]
   const Icon = meta.icon
 
   return (
     <section className="space-y-3">
       {/* Section header */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-3">
+        {/* Domain dot */}
         <div
-          className="flex items-center justify-center w-8 h-8 shrink-0"
-          style={{ backgroundColor: meta.color }}
-        >
-          <Icon className="h-4 w-4 text-parchment" />
-        </div>
-        <h2 className="text-base font-display tracking-wide uppercase text-foreground">
+          className="w-2 h-2 rounded-full shrink-0"
+          style={{
+            backgroundColor: meta.color,
+            boxShadow: `0 0 8px ${meta.color}`,
+          }}
+        />
+        <h2 className="text-sm font-display font-semibold tracking-wide uppercase text-foreground">
           {meta.label}
         </h2>
+        {/* Section icon */}
+        <Icon className="h-4 w-4" style={{ color: meta.color, opacity: 0.7 }} />
+
         {items.length > 0 && (
           <span
-            className="ml-auto text-[10px] font-mono uppercase tracking-widest px-2 py-0.5"
+            className="ml-auto text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded-full"
             style={{
-              border: `1px solid ${meta.color}40`,
-              color: meta.color,
+              border: `1px solid ${meta.color}30`,
+              color:  meta.color,
+              backgroundColor: `${meta.color}10`,
             }}
           >
-            {items.length} picks
+            {items.length} signals
           </span>
         )}
       </div>
 
-      {/* Content states */}
+      {/* Content */}
       {loading ? (
-        <LoadingSkeleton category={category} />
+        <SignalCardSkeleton category={category} />
       ) : error ? (
-        <ErrorStateWithRetry
-          message={error}
-          onRetry={onRetry}
-          accent={meta.color}
-        />
+        <ErrorState message={error} onRetry={onRetry} color={meta.color} />
       ) : items.length === 0 ? (
-        <CategoryEmptyState category={category} onNavigate={onNavigate} />
+        <EmptyState category={category} meta={meta} onNavigate={onNavigate} />
       ) : (
-        <div className="flex gap-5 pb-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
+        <div className="flex gap-4 pb-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
           {items.map((item, i) => (
-            <TicketStubCard
+            <SignalCard
               key={item.id}
               item={item}
               index={i}
               category={category}
+              meta={meta}
               onNavigate={onNavigate}
             />
           ))}
@@ -106,152 +113,228 @@ export function RecommendationRow({
   )
 }
 
-// ── Ticket-stub card ────────────────────────────────────────────────
+// ── Signal Card ──────────────────────────────────────────────────────
 
-function TicketStubCard({
+function SignalCard({
   item,
   index,
   category,
+  meta,
   onNavigate,
 }: {
   item: Recommendation
   index: number
   category: Category
+  meta: typeof DOMAIN[Category]
   onNavigate: (page: PageId) => void
 }) {
-  const meta = categoryMeta[category]
   const accent = meta.color
+
+  const handleClick = () => {
+    if (category === "anime")      onNavigate("anime")
+    else if (category === "restaurant") onNavigate("restaurants")
+    else                           onNavigate("music")
+  }
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12, scale: 0.97 }}
+      initial={{ opacity: 0, y: 14, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{
-        delay: index * 0.07,
-        duration: 0.5,
-        ease: [0.22, 1, 0.36, 1],
+        delay:    index * 0.06,
+        duration: 0.45,
+        ease:     [0.22, 1, 0.36, 1],
       }}
       whileHover={{ y: -6, transition: { duration: 0.2 } }}
-      className="snap-start shrink-0 w-[210px] cursor-pointer"
-      onClick={() => {
-        if (category === "anime") onNavigate("anime")
-        else if (category === "restaurant") onNavigate("restaurants")
-        else if (category === "music") onNavigate("music")
-      }}
+      className="snap-start shrink-0 w-[200px] cursor-pointer group"
+      onClick={handleClick}
     >
+      {/* Glass card shell */}
       <div
-        className="relative overflow-hidden ticket-perf"
+        className={`relative overflow-hidden rounded-xl gradient-border ${meta.glowEdge} transition-all duration-300`}
         style={{
-          background: "#EFE6D8",
-          border: `1px solid ${accent}40`,
+          background: "rgba(18,24,31,0.75)",
+          backdropFilter: "blur(10px)",
         }}
       >
-        {/* Category tab */}
+        {/* Domain accent glow behind content */}
         <div
-          className="px-3 py-1 text-xs font-display uppercase tracking-widest text-center"
-          style={{ backgroundColor: accent, color: "#EFE6D8" }}
-        >
-          {meta.label}
-        </div>
+          className="absolute top-0 left-0 w-full h-1"
+          style={{
+            background: `linear-gradient(90deg, ${accent} 0%, transparent 80%)`,
+            opacity: 0.6,
+          }}
+        />
 
         {/* Image */}
-        <div className="relative h-32 overflow-hidden">
+        <div className="relative h-28 overflow-hidden">
           {item.imageUrl ? (
             <img
               src={item.imageUrl}
               alt={item.title}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
               loading="lazy"
             />
           ) : (
             <div
               className="h-full w-full flex items-center justify-center"
-              style={{ backgroundColor: accent + "25" }}
+              style={{ backgroundColor: `${accent}15` }}
             >
-              <meta.icon
-                className="h-10 w-10"
-                style={{ color: accent }}
-              />
+              <meta.icon className="h-10 w-10" style={{ color: accent, opacity: 0.5 }} />
             </div>
           )}
+          {/* Image scrim */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: "linear-gradient(to top, rgba(18,24,31,0.9) 0%, transparent 60%)",
+            }}
+          />
         </div>
 
         {/* Content */}
-        <div className="p-3 space-y-2">
-          <h3 className="text-sm font-body font-semibold leading-snug line-clamp-2 text-ink">
+        <div className="p-3 space-y-1.5">
+          <h3 className="text-xs font-sans font-semibold leading-snug line-clamp-2 text-foreground">
             {item.title}
           </h3>
-          <p className="text-xs font-body text-ink/60 line-clamp-2 leading-relaxed">
+          <p className="text-[10px] font-sans text-muted-foreground line-clamp-2 leading-relaxed">
             {item.reason}
           </p>
         </div>
 
-        {/* Circular score stamp */}
-        <div
-          className="absolute bottom-3 right-3 w-11 h-11 rounded-full flex items-center justify-center text-parchment font-display text-sm tracking-wide"
-          style={{
-            backgroundColor: accent,
-            boxShadow: "0 2px 8px rgba(16, 38, 42, 0.25)",
-            animation: `stamp-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) ${index * 0.07 + 0.18}s both`,
-          }}
-        >
-          {item.score}%
+        {/* Score ring — bottom right */}
+        <div className="absolute bottom-3 right-3">
+          <ScoreRing score={item.score} color={accent} size={44} />
         </div>
+
+        {/* Spacer for score ring */}
+        <div className="h-6" />
       </div>
     </motion.div>
   )
 }
 
-// ── States ──────────────────────────────────────────────────────────
+// ── Score ring (SVG radial) ──────────────────────────────────────────
 
-function LoadingSkeleton({ category }: { category: Category }) {
-  const accent = categoryMeta[category].color
+function ScoreRing({
+  score,
+  color,
+  size = 44,
+}: {
+  score: number
+  color: string
+  size?: number
+}) {
+  const r      = (size - 6) / 2
+  const circ   = 2 * Math.PI * r
+  const offset = circ * (1 - score / 100)
+
   return (
-    <div className="flex gap-5 overflow-hidden">
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="rotate-[-90deg]"
+      >
+        {/* Track */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="rgba(255,255,255,0.08)"
+          strokeWidth="3"
+        />
+        {/* Progress */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeDasharray={circ}
+          strokeDashoffset={offset}
+          style={{
+            filter: `drop-shadow(0 0 4px ${color}80)`,
+            transition: "stroke-dashoffset 0.8s cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+        />
+      </svg>
+      {/* Score label */}
+      <div
+        className="absolute inset-0 flex items-center justify-center"
+        style={{ fontSize: 10, fontFamily: "JetBrains Mono, monospace", color, fontWeight: 700 }}
+      >
+        {score}
+      </div>
+    </div>
+  )
+}
+
+// ── Skeleton ─────────────────────────────────────────────────────────
+
+function SignalCardSkeleton({ category }: { category: Category }) {
+  const { color } = DOMAIN[category]
+  return (
+    <div className="flex gap-4 overflow-hidden">
       {Array.from({ length: 5 }).map((_, i) => (
         <div
           key={i}
-          className="w-[210px] shrink-0 rounded-none overflow-hidden ticket-perf"
+          className="w-[200px] shrink-0 rounded-xl overflow-hidden"
           style={{
-            background: `linear-gradient(110deg, #EFE6D8 8%, #D9CEBC 18%, #EFE6D8 33%)`,
-            backgroundSize: "200% 100%",
-            animation: "shimmer 1.5s linear infinite",
-            border: `1px solid ${accent}40`,
+            background: "rgba(18,24,31,0.6)",
+            border: `1px solid rgba(255,255,255,0.05)`,
           }}
         >
-          <div className="h-10 animate-pulse" style={{ backgroundColor: accent + "30" }} />
-          <div className="h-32 animate-pulse bg-parchment-dark/50" />
+          <div
+            className="h-1 w-full"
+            style={{ backgroundColor: `${color}30` }}
+          />
+          <div
+            className="h-28 skeleton-dark"
+            style={{ borderRadius: 0 }}
+          />
           <div className="p-3 space-y-2">
-            <div className="h-3 w-3/4 rounded-sm bg-parchment-dark/60 animate-pulse" />
-            <div className="h-3 w-full rounded-sm bg-parchment-dark/50 animate-pulse" />
+            <div className="h-2.5 w-3/4 rounded-full skeleton-dark" />
+            <div className="h-2 w-full rounded-full skeleton-dark" />
+            <div className="h-2 w-2/3 rounded-full skeleton-dark" />
           </div>
-          <div className="absolute bottom-3 right-3 w-11 h-11 rounded-full bg-parchment-dark/40 animate-pulse" />
+          {/* Score placeholder */}
+          <div className="absolute bottom-3 right-3 w-11 h-11 rounded-full skeleton-dark" />
         </div>
       ))}
     </div>
   )
 }
 
-function ErrorStateWithRetry({
+// ── Error state ───────────────────────────────────────────────────────
+
+function ErrorState({
   message,
   onRetry,
-  accent,
+  color,
 }: {
   message: string
   onRetry: () => void
-  accent: string
+  color: string
 }) {
   return (
     <div
-      className="flex items-center gap-3 rounded-none border px-4 py-3"
-      style={{ borderColor: accent + "50", background: accent + "10" }}
+      className="flex items-center gap-3 rounded-xl border px-4 py-3"
+      style={{
+        borderColor: `${color}30`,
+        backgroundColor: `${color}08`,
+      }}
     >
-      <AlertCircle className="h-5 w-5 shrink-0" style={{ color: accent }} />
-      <p className="text-sm flex-1 text-foreground">{message}</p>
+      <AlertCircle className="h-4 w-4 shrink-0" style={{ color }} />
+      <p className="text-sm flex-1 font-sans text-foreground">{message}</p>
       <button
         onClick={onRetry}
-        className="text-xs font-mono uppercase tracking-wider px-3 py-1.5 transition-colors hover:opacity-80"
-        style={{ backgroundColor: accent, color: "#EFE6D8" }}
+        className="text-xs font-mono uppercase tracking-wider px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+        style={{ backgroundColor: `${color}20`, color }}
       >
         Retry
       </button>
@@ -259,59 +342,60 @@ function ErrorStateWithRetry({
   )
 }
 
-// ── Empty states ────────────────────────────────────────────────────
+// ── Empty state ────────────────────────────────────────────────────────
 
-const categoryEmptyCopy: Record<Category, { title: string; description: string; action?: string }> = {
+const EMPTY_COPY: Record<Category, { title: string; description: string; action?: string }> = {
   anime: {
-    title: "No shows matched yet",
-    description: "Rate some anime to start your music passport.",
-    action: "Browse Anime",
+    title:       "No anime signals yet",
+    description: "Rate some shows to train your signal.",
+    action:      "Browse Anime",
   },
   restaurant: {
-    title: "No restaurants matched yet",
-    description: "Liked a spot recently? Add it here to build your culinary passport.",
+    title:       "No food signals yet",
+    description: "Like a spot nearby to build your culinary signal.",
   },
   music: {
-    title: "No tracks matched yet",
-    description: "Connect Spotify to start your music passport.",
+    title:       "No music signals yet",
+    description: "Connect Spotify to activate your music signal.",
   },
 }
 
-function CategoryEmptyState({
+function EmptyState({
   category,
+  meta,
   onNavigate,
 }: {
   category: Category
+  meta: typeof DOMAIN[Category]
   onNavigate: (page: PageId) => void
 }) {
-  const meta = categoryMeta[category]
-  const copy = categoryEmptyCopy[category]
+  const copy = EMPTY_COPY[category]
   const Icon = meta.icon
 
   return (
     <div
-      className="flex items-center gap-3 rounded-none border border-dashed px-4 py-4"
-      style={{ borderColor: meta.color + "50" }}
+      className="flex items-center gap-3 rounded-xl border border-dashed px-4 py-4"
+      style={{ borderColor: `${meta.color}30` }}
     >
       <div
-        className="flex items-center justify-center w-10 h-10 shrink-0"
-        style={{ backgroundColor: meta.color + "20", color: meta.color }}
+        className="flex items-center justify-center w-10 h-10 rounded-lg shrink-0"
+        style={{ backgroundColor: `${meta.color}15`, color: meta.color }}
       >
         <Icon className="h-5 w-5" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground">{copy.title}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">{copy.description}</p>
+        <p className="text-sm font-sans font-medium text-foreground">{copy.title}</p>
+        <p className="text-xs font-sans text-muted-foreground mt-0.5">{copy.description}</p>
       </div>
       {copy.action && (
         <button
           onClick={() => {
-            if (category === "anime") onNavigate("anime")
+            if (category === "anime")      onNavigate("anime")
             else if (category === "restaurant") onNavigate("restaurants")
-            else onNavigate("music")
+            else                           onNavigate("music")
           }}
-          className="text-[11px] font-mono uppercase tracking-wider px-3 py-1.5 shrink-0 transition-opacity hover:opacity-80"
-          style={{ backgroundColor: meta.color, color: "#EFE6D8" }}
+          className="text-[11px] font-mono uppercase tracking-wider px-3 py-1.5 rounded-lg shrink-0 transition-opacity hover:opacity-80"
+          style={{ backgroundColor: `${meta.color}20`, color: meta.color }}
         >
           {copy.action}
         </button>

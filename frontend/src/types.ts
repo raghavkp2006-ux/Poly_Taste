@@ -40,4 +40,4 @@ export interface ActivityItem {
 
 // ── Navigation ──────────────────────────────────────────────────────
 
-export type PageId = "home" | "anime" | "restaurants" | "music" | "settings"
+export type PageId = "home" | "anime" | "restaurants" | "music" | "profile" | "settings"

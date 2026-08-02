@@ -1,26 +1,34 @@
 import { useEffect, useState } from "react"
 import { api } from "./api"
-import { TopographicBackground } from "./components/ui/TopographicBackground"
+import { AmbientBackground } from "./components/ui/AmbientBackground"
 import { Component as LoginPage } from "./components/ui/animated-characters-login-page"
 import { Sidebar } from "./components/dashboard/Sidebar"
 import { DashboardHome } from "./components/dashboard/DashboardHome"
 import { AnimeGrid } from "./components/anime/AnimeGrid"
 import { AnimeDetail } from "./components/anime/AnimeDetail"
+import { ConvergenceHalo } from "./components/dashboard/ConvergenceHalo"
 import { cn } from "@/lib/utils"
-import {
-  Button,
-  Input,
-  Switch,
-} from "./components/ui"
+import { Button, Input, Switch } from "./components/ui"
 import { Search, Loader2 } from "lucide-react"
 import type { PageId } from "./types"
 
+// ── Domain accent constants ──────────────────────────────────────────
+const FOOD_ACCENT  = "#E3A857"
+const MUSIC_ACCENT = "#7C6CF0"
+
+const GLASS_PANEL = {
+  background:     "rgba(18,24,31,0.75)",
+  backdropFilter: "blur(10px)",
+  border:         "1px solid rgba(255,255,255,0.06)",
+  borderRadius:   "0.75rem",
+} as const
+
 export default function App() {
-  const [user, setUser] = useState<{ user_id: string } | null>(null)
+  const [user,    setUser]    = useState<{ user_id: string } | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const hash = window.location.hash
+    const hash  = window.location.hash
     const match = hash.match(/id_token=([^&]+)/)
 
     if (match) {
@@ -48,15 +56,32 @@ export default function App() {
   if (loading) {
     return (
       <>
-        <TopographicBackground />
+        <AmbientBackground />
         <div className="flex h-screen items-center justify-center bg-transparent">
           <div className="flex flex-col items-center gap-4">
+            {/* Convergence ring spinner */}
             <div
-              className="w-10 h-10 rounded-none animate-pulse"
-              style={{ backgroundColor: "hsl(var(--sidebar-accent))" }}
-            />
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                background: "linear-gradient(135deg, #7C6CF0 0%, #3ED6C4 100%)",
+                padding: 2,
+                animation: "spin 1.2s linear infinite",
+              }}
+            >
+              <div
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  borderRadius: "50%",
+                  background: "#0A0E14",
+                }}
+              />
+            </div>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             <p className="font-mono text-xs tracking-widest uppercase text-muted-foreground">
-              Loading passport…
+              Initializing…
             </p>
           </div>
         </div>
@@ -67,7 +92,7 @@ export default function App() {
   if (!user) {
     return (
       <>
-        <TopographicBackground />
+        <AmbientBackground />
         <LoginPage />
       </>
     )
@@ -75,37 +100,46 @@ export default function App() {
 
   return (
     <>
-      <TopographicBackground />
-      <DashboardLayout userId={user.user_id} onLogout={() => {
-        api.auth.logout().then(() => setUser(null))
-      }} />
+      <AmbientBackground />
+      <DashboardLayout
+        userId={user.user_id}
+        onLogout={() => {
+          api.auth.logout().then(() => setUser(null))
+        }}
+      />
     </>
   )
 }
 
-// ── Dashboard Shell ─────────────────────────────────────────────────
+// ── Dashboard shell ──────────────────────────────────────────────────
 
-function DashboardLayout({ userId, onLogout }: { userId: string; onLogout: () => void }) {
-  const [currentPage, setCurrentPage] = useState<PageId>("home")
-  const [selectedAnime, setSelectedAnime] = useState<any | null>(null)
-  const [collapsed, setCollapsed] = useState(false)
+function DashboardLayout({
+  userId,
+  onLogout,
+}: {
+  userId: string
+  onLogout: () => void
+}) {
+  const [currentPage,    setCurrentPage]    = useState<PageId>("home")
+  const [selectedAnime,  setSelectedAnime]  = useState<any | null>(null)
+  const [collapsed,      setCollapsed]      = useState(false)
 
   const handleNavigate = (page: PageId, item?: any) => {
     if (page === "anime") {
       if (item) {
         setSelectedAnime({
-          mal_id: item.id,
-          title: item.title,
-          cover_image: item.imageUrl,
-          score: item.score,
-          synopsis: item.reason
-        });
+          mal_id:       item.id,
+          title:        item.title,
+          cover_image:  item.imageUrl,
+          score:        item.score,
+          synopsis:     item.reason,
+        })
       } else {
-        setSelectedAnime(null);
+        setSelectedAnime(null)
       }
     }
-    setCurrentPage(page);
-  };
+    setCurrentPage(page)
+  }
 
   return (
     <div className="flex min-h-screen bg-transparent">
@@ -117,28 +151,45 @@ function DashboardLayout({ userId, onLogout }: { userId: string; onLogout: () =>
         onToggleCollapse={() => setCollapsed(!collapsed)}
       />
 
-      <div className={cn("flex-1 transition-all duration-300", collapsed ? "md:ml-[72px]" : "md:ml-[240px]")}>
+      <div
+        className={cn(
+          "flex-1 transition-all duration-300",
+          collapsed ? "md:ml-[72px]" : "md:ml-[240px]"
+        )}
+      >
         {currentPage === "home" && (
-          <DashboardHome userName={userId} onLogout={onLogout} onNavigate={handleNavigate} />
+          <DashboardHome
+            userName={userId}
+            onLogout={onLogout}
+            onNavigate={handleNavigate}
+          />
         )}
         {currentPage === "anime" && (
-          <PageWrapper title="Anime" onLogout={onLogout} userName={userId}>
-            <AnimeModule externalSelectedAnime={selectedAnime} onExternalSelectAnime={setSelectedAnime} />
+          <PageWrapper>
+            <AnimeModule
+              externalSelectedAnime={selectedAnime}
+              onExternalSelectAnime={setSelectedAnime}
+            />
           </PageWrapper>
         )}
         {currentPage === "restaurants" && (
-          <PageWrapper title="Restaurants" onLogout={onLogout} userName={userId}>
+          <PageWrapper>
             <RestaurantModule />
           </PageWrapper>
         )}
         {currentPage === "music" && (
-          <PageWrapper title="Music" onLogout={onLogout} userName={userId}>
-            <MusicPlaceholder />
+          <PageWrapper>
+            <MusicSection />
+          </PageWrapper>
+        )}
+        {currentPage === "profile" && (
+          <PageWrapper>
+            <TasteProfileModule />
           </PageWrapper>
         )}
         {currentPage === "settings" && (
-          <PageWrapper title="Settings" onLogout={onLogout} userName={userId}>
-            <SettingsPlaceholder />
+          <PageWrapper>
+            <SettingsSection />
           </PageWrapper>
         )}
       </div>
@@ -146,19 +197,9 @@ function DashboardLayout({ userId, onLogout }: { userId: string; onLogout: () =>
   )
 }
 
-// ── Page wrappers ────────────────────────────────────────────────────
+// ── Page wrapper ─────────────────────────────────────────────────────
 
-function PageWrapper({
-  children,
-  title: _title,
-  onLogout: _onLogout,
-  userName: _userName,
-}: {
-  children: React.ReactNode
-  title: string
-  onLogout: () => void
-  userName: string
-}) {
+function PageWrapper({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-col min-h-screen">
       <div className="flex-1 p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
@@ -168,14 +209,16 @@ function PageWrapper({
   )
 }
 
-function SettingsPlaceholder() {
+// ── Settings section ─────────────────────────────────────────────────
+
+function SettingsSection() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h2 className="text-2xl font-display tracking-wide text-foreground">Preferences</h2>
-      <div className="border border-border/40 overflow-hidden" style={{ background: "hsl(var(--card))" }}>
-        <div className="p-6 space-y-4">
-          <p className="text-sm font-body text-muted-foreground">
-            Toggle dark mode from the top bar on the Home page. More options stamp in soon.
+      <h2 className="text-2xl font-display font-bold text-foreground">Preferences</h2>
+      <div style={GLASS_PANEL}>
+        <div className="p-6">
+          <p className="text-sm font-sans text-muted-foreground">
+            More settings coming soon. Your taste signals are already being tuned automatically.
           </p>
         </div>
       </div>
@@ -183,23 +226,44 @@ function SettingsPlaceholder() {
   )
 }
 
-function MusicPlaceholder() {
+// ── Music section ────────────────────────────────────────────────────
+
+function MusicSection() {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
+    <div className="flex flex-col items-center justify-center py-16 text-center gap-6">
+      {/* Icon ring */}
       <div
-        className="w-14 h-14 flex items-center justify-center"
-        style={{ backgroundColor: "#C6318C" }}
+        className="w-16 h-16 flex items-center justify-center rounded-full"
+        style={{
+          background: `linear-gradient(135deg, ${MUSIC_ACCENT}30, transparent)`,
+          border: `1px solid ${MUSIC_ACCENT}40`,
+          boxShadow: `0 0 32px ${MUSIC_ACCENT}30`,
+        }}
       >
-        <span className="text-2xl text-parchment font-display">♪</span>
+        <span style={{ fontSize: 28, color: MUSIC_ACCENT }}>♪</span>
       </div>
-      <h2 className="text-xl font-display tracking-wide text-foreground">No tracks matched yet</h2>
-      <p className="text-sm font-body text-muted-foreground max-w-sm">
-        Connect Spotify to start your music passport — we'll stamp every listen.
-      </p>
+
+      <div className="space-y-2">
+        <h2 className="text-xl font-display font-bold text-foreground">
+          No music signals yet
+        </h2>
+        <p
+          className="text-sm font-sans max-w-sm"
+          style={{ color: "#7B8794" }}
+        >
+          Connect Spotify to activate your music signal — we'll learn your vibe from every listen.
+        </p>
+      </div>
+
       <a
         href={api.auth.loginUrl}
-        className="inline-flex items-center gap-2 rounded-none px-5 py-2.5 text-sm font-display tracking-wide text-parchment transition-opacity hover:opacity-90"
-        style={{ backgroundColor: "#C6318C" }}
+        className="inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-sans font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C6CF0] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0E14]"
+        style={{
+          backgroundColor: `${MUSIC_ACCENT}20`,
+          color:            MUSIC_ACCENT,
+          border:           `1px solid ${MUSIC_ACCENT}40`,
+          boxShadow:        `0 0 20px ${MUSIC_ACCENT}20`,
+        }}
       >
         Connect Spotify
       </a>
@@ -207,32 +271,35 @@ function MusicPlaceholder() {
   )
 }
 
-// ── Anime sub-module ────────────────────────────────────────────────
+// ── Anime sub-module ─────────────────────────────────────────────────
 
-function AnimeModule({ externalSelectedAnime, onExternalSelectAnime }: { externalSelectedAnime?: any, onExternalSelectAnime?: (anime: any) => void }) {
-  const [query, setQuery] = useState("")
-  const [results, setResults] = useState<any[]>([])
-  const [upcoming, setUpcoming] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
+function AnimeModule({
+  externalSelectedAnime,
+  onExternalSelectAnime,
+}: {
+  externalSelectedAnime?: any
+  onExternalSelectAnime?: (anime: any) => void
+}) {
+  const [query,          setQuery]          = useState("")
+  const [results,        setResults]        = useState<any[]>([])
+  const [upcoming,       setUpcoming]       = useState<any[]>([])
+  const [loading,        setLoading]        = useState(false)
   const [loadingUpcoming, setLoadingUpcoming] = useState(true)
-  const [localSelectedAnime, setLocalSelectedAnime] = useState<any | null>(null)
+  const [localSelected,  setLocalSelected]  = useState<any | null>(null)
 
-  const selectedAnime = externalSelectedAnime !== undefined ? externalSelectedAnime : localSelectedAnime
-  const setSelectedAnime = onExternalSelectAnime || setLocalSelectedAnime
+  const selectedAnime  = externalSelectedAnime !== undefined ? externalSelectedAnime : localSelected
+  const setSelectedAnime = onExternalSelectAnime || setLocalSelected
 
   useEffect(() => {
     api.anime.getUpcoming()
-      .then(res => setUpcoming((res as { upcoming?: any[] }).upcoming || []))
+      .then((res) => setUpcoming((res as { upcoming?: any[] }).upcoming || []))
       .catch(console.error)
       .finally(() => setLoadingUpcoming(false))
   }, [])
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!query) {
-      setResults([])
-      return
-    }
+    if (!query) { setResults([]); return }
     setLoading(true)
     try {
       setResults(await api.anime.search(query))
@@ -243,35 +310,51 @@ function AnimeModule({ externalSelectedAnime, onExternalSelectAnime }: { externa
   }
 
   if (selectedAnime) {
-    return <AnimeDetail anime={selectedAnime} onBack={() => setSelectedAnime(null)} onSelect={setSelectedAnime} />
+    return (
+      <AnimeDetail
+        anime={selectedAnime}
+        onBack={() => setSelectedAnime(null)}
+        onSelect={setSelectedAnime}
+      />
+    )
   }
 
   const showResults = query && results.length > 0
 
   return (
-    <div className="space-y-8 animate-in fade-in">
-      <div className="flex items-center justify-between rounded-none border border-border/40 p-4" style={{ background: "hsl(var(--card))" }}>
-        <form onSubmit={handleSearch} className="flex gap-2 w-full max-w-md">
-          <Input placeholder="Search anime by title..." value={query} onChange={e => setQuery(e.target.value)} />
-          <Button type="submit"><Search className="h-4 w-4 mr-2" /> Search</Button>
+    <div className="space-y-8">
+      {/* Search bar */}
+      <div className="p-4 rounded-xl" style={GLASS_PANEL}>
+        <form onSubmit={handleSearch} className="flex gap-2 w-full max-w-lg">
+          <Input
+            placeholder="Search anime by title…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search anime"
+          />
+          <Button type="submit" id="btn-anime-search" style={{ backgroundColor: "#FF7A59", color: "#fff" }}>
+            <Search className="h-4 w-4 mr-2" />
+            Search
+          </Button>
         </form>
       </div>
 
       {loading ? (
-        <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-primary" /></div>
+        <div className="flex justify-center p-12">
+          <Loader2 className="animate-spin w-8 h-8" style={{ color: "#FF7A59" }} />
+        </div>
       ) : showResults ? (
         <section>
-          <h2 className="text-2xl font-display tracking-wide text-foreground mb-4">Search Results</h2>
+          <SectionHeader title="Search Results" color="#FF7A59" />
           <AnimeGrid animes={results} onSelect={setSelectedAnime} />
         </section>
       ) : (
         <section>
-          <h2 className="text-2xl font-display tracking-wide text-foreground mb-4 flex items-center gap-2">
-            <span className="w-2 h-2 inline-block" style={{ backgroundColor: "#E8A23D" }} />
-            Upcoming Anime
-          </h2>
+          <SectionHeader title="Upcoming Anime" color="#FF7A59" />
           {loadingUpcoming ? (
-            <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-primary" /></div>
+            <div className="flex justify-center p-12">
+              <Loader2 className="animate-spin w-8 h-8" style={{ color: "#FF7A59" }} />
+            </div>
           ) : (
             <AnimeGrid animes={upcoming} onSelect={setSelectedAnime} />
           )}
@@ -281,36 +364,27 @@ function AnimeModule({ externalSelectedAnime, onExternalSelectAnime }: { externa
   )
 }
 
-// ── Restaurant sub-module ───────────────────────────────────────────
+// ── Restaurant sub-module ────────────────────────────────────────────
 
 function RestaurantModule() {
-  const [query, setQuery] = useState("")
-  const [results, setResults] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [personalize, setPersonalize] = useState(false)
-  const [lat, setLat] = useState<number | null>(null)
-  const [lng, setLng] = useState<number | null>(null)
+  const [query,          setQuery]          = useState("")
+  const [results,        setResults]        = useState<any[]>([])
+  const [loading,        setLoading]        = useState(false)
+  const [personalize,    setPersonalize]    = useState(false)
+  const [lat,            setLat]            = useState<number | null>(null)
+  const [lng,            setLng]            = useState<number | null>(null)
   const [manualLocation, setManualLocation] = useState("")
-  const [locationStatus, setLocationStatus] = useState<"idle" | "prompting" | "granted" | "denied">("idle")
+  const [locationStatus, setLocationStatus] = useState<
+    "idle" | "prompting" | "granted" | "denied"
+  >("idle")
 
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocationStatus("denied")
-      return
-    }
-
+    if (!navigator.geolocation) { setLocationStatus("denied"); return }
     setLocationStatus("prompting")
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLat(position.coords.latitude)
-        setLng(position.coords.longitude)
-        setLocationStatus("granted")
-      },
-      (error) => {
-        console.warn("[geolocation]", error.message)
-        setLocationStatus("denied")
-      },
-      { timeout: 10000, maximumAge: 300000 }
+      (pos) => { setLat(pos.coords.latitude); setLng(pos.coords.longitude); setLocationStatus("granted") },
+      (err) => { console.warn("[geo]", err.message); setLocationStatus("denied") },
+      { timeout: 10000, maximumAge: 300000 },
     )
   }, [])
 
@@ -321,9 +395,7 @@ function RestaurantModule() {
     try {
       const res = await api.restaurants.search(query, lat ?? undefined, lng ?? undefined)
       setResults(res.results || [])
-    } catch (e) {
-      console.error(e)
-    }
+    } catch (e) { console.error(e) }
     setLoading(false)
   }
 
@@ -334,9 +406,7 @@ function RestaurantModule() {
     try {
       const res = await api.restaurants.search(query, undefined, undefined, manualLocation.trim())
       setResults(res.results || [])
-    } catch (e) {
-      console.error(e)
-    }
+    } catch (e) { console.error(e) }
     setLoading(false)
   }
 
@@ -345,96 +415,128 @@ function RestaurantModule() {
     try {
       const res = await api.restaurants.recommend(id, personalize)
       setResults(res.recommendations || [])
-    } catch (e) {
-      console.error(e)
-    }
+    } catch (e) { console.error(e) }
     setLoading(false)
   }
 
   return (
     <div className="space-y-6">
-      <div className="rounded-none border border-border/40 p-4" style={{ background: "hsl(var(--card))" }}>
+      {/* Search panel */}
+      <div className="rounded-xl p-4 space-y-4" style={GLASS_PANEL}>
         {/* Location banner */}
-        <div className="mb-4">
-          {locationStatus === "prompting" && (
-            <div className="flex items-center gap-2 text-xs font-mono" style={{ color: "#E8A23D" }}>
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span>Requesting your location…</span>
-            </div>
-          )}
-          {locationStatus === "granted" && lat && lng && (
-            <div className="flex items-center gap-2 text-xs font-mono" style={{ color: "#4A9B8E" }}>
-              <span>Location locked — searching near {lat.toFixed(2)}, {lng.toFixed(2)}</span>
-            </div>
-          )}
-          {locationStatus === "denied" && (
-            <div className="space-y-2">
-              <p className="text-xs font-mono" style={{ color: "#B23A2E" }}>
-                Location access denied — enter a city or ZIP to search nearby.
-              </p>
-              <form onSubmit={handleManualSearch} className="flex gap-2">
-                <Input
-                  placeholder="City or ZIP code"
-                  value={manualLocation}
-                  onChange={(e) => setManualLocation(e.target.value)}
-                  className="h-8 text-xs"
-                />
-                <Button type="submit" size="sm" variant="outline" className="h-8 text-xs">Set</Button>
-              </form>
-            </div>
-          )}
-        </div>
+        {locationStatus === "prompting" && (
+          <div className="flex items-center gap-2 text-xs font-mono" style={{ color: FOOD_ACCENT }}>
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>Requesting your location…</span>
+          </div>
+        )}
+        {locationStatus === "granted" && lat && lng && (
+          <div className="flex items-center gap-2 text-xs font-mono" style={{ color: "#3ED6C4" }}>
+            <span>Location locked — {lat.toFixed(2)}, {lng.toFixed(2)}</span>
+          </div>
+        )}
+        {locationStatus === "denied" && (
+          <div className="space-y-2">
+            <p className="text-xs font-mono" style={{ color: "#FF7A59" }}>
+              Location denied — enter a city or ZIP to search nearby.
+            </p>
+            <form onSubmit={handleManualSearch} className="flex gap-2">
+              <Input
+                placeholder="City or ZIP code"
+                value={manualLocation}
+                onChange={(e) => setManualLocation(e.target.value)}
+                className="h-8 text-xs"
+                aria-label="Manual location"
+              />
+              <Button type="submit" size="sm" variant="outline" className="h-8 text-xs">
+                Set
+              </Button>
+            </form>
+          </div>
+        )}
 
-        {/* Search + Personalize row */}
+        {/* Search + personalize */}
         <div className="flex items-center justify-between gap-4">
           <form onSubmit={handleSearch} className="flex gap-2 w-full max-w-md">
-            <Input placeholder="Search restaurants..." value={query} onChange={e => setQuery(e.target.value)} />
-            <Button type="submit"><Search className="h-4 w-4" /></Button>
+            <Input
+              placeholder="Search restaurants…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="Search restaurants"
+            />
+            <Button
+              type="submit"
+              id="btn-restaurant-search"
+              style={{ backgroundColor: FOOD_ACCENT + "25", color: FOOD_ACCENT, border: `1px solid ${FOOD_ACCENT}40` }}
+            >
+              <Search className="h-4 w-4" />
+            </Button>
           </form>
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-body text-muted-foreground">Personalize</label>
+          <div className="flex items-center gap-2 shrink-0">
+            <label className="text-xs font-sans text-muted-foreground">Personalize</label>
             <Switch checked={personalize} onCheckedChange={setPersonalize} />
           </div>
         </div>
       </div>
 
-      {loading && <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>}
+      {loading && (
+        <div className="flex justify-center p-8">
+          <Loader2 className="animate-spin" style={{ color: FOOD_ACCENT }} />
+        </div>
+      )}
 
+      {/* Results grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.isArray(results) && results.map((restaurant) => {
-          const id = restaurant.place_id || restaurant.id
+        {Array.isArray(results) && results.map((r) => {
+          const id = r.place_id || r.id
           return (
-            <div key={id} className="ticket-perf overflow-hidden cursor-pointer transition-shadow duration-300 hover:shadow-lg" style={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}>
-              <div className="p-4 pb-3 space-y-2">
-                <h3 className="text-sm font-body font-semibold leading-snug line-clamp-2" style={{ color: "hsl(var(--card-foreground))" }}>
-                  {restaurant.name}
+            <div
+              key={id}
+              className="rounded-xl overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.01] group glow-edge-food"
+              style={GLASS_PANEL}
+            >
+              {/* Accent bar */}
+              <div
+                className="h-0.5 w-full"
+                style={{ background: `linear-gradient(90deg, ${FOOD_ACCENT} 0%, transparent 80%)` }}
+              />
+              <div className="p-4 space-y-2">
+                <h3 className="text-sm font-sans font-semibold leading-snug line-clamp-2 text-foreground">
+                  {r.name}
                 </h3>
-                <p className="text-xs font-mono" style={{ color: "#B23A2E" }}>
-                  {restaurant.rating ? `${restaurant.rating} ★` : 'No rating'}
+                <p className="text-xs font-mono" style={{ color: FOOD_ACCENT }}>
+                  {r.rating ? `${r.rating} ★` : "No rating"}
                 </p>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono">
-                  {Array.isArray(restaurant.types) ? restaurant.types.slice(0, 3).join(" · ") : ""}
+                  {Array.isArray(r.types) ? r.types.slice(0, 3).join(" · ") : ""}
                 </p>
-                <p className="text-xs text-muted-foreground line-clamp-2 font-body">
-                  {restaurant.vicinity || restaurant.formatted_address}
+                <p className="text-xs text-muted-foreground line-clamp-2 font-sans">
+                  {r.vicinity || r.formatted_address}
                 </p>
               </div>
-              <div className="px-4 pb-4 flex flex-col gap-2">
+              <div className="px-4 pb-4">
                 <button
                   onClick={() => handleRecommend(id)}
-                  className="text-[11px] font-mono uppercase tracking-wider px-3 py-1.5 transition-opacity hover:opacity-80 rounded-none"
-                  style={{ backgroundColor: "#B23A2E", color: "#EFE6D8" }}
+                  id={`btn-similar-${id}`}
+                  className="text-[11px] font-mono uppercase tracking-wider px-3 py-1.5 rounded-lg transition-all hover:scale-[1.02] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E3A857]"
+                  style={{
+                    backgroundColor: `${FOOD_ACCENT}18`,
+                    color:            FOOD_ACCENT,
+                    border:           `1px solid ${FOOD_ACCENT}35`,
+                  }}
                 >
                   Similar
                 </button>
               </div>
             </div>
-          );
+          )
         })}
       </div>
     </div>
   )
 }
+
+// ── TasteProfileModule (unchanged structure, updated styles) ─────────
 
 export function TasteProfileModule() {
   const [profile, setProfile] = useState<any>(null)
@@ -447,55 +549,163 @@ export function TasteProfileModule() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <Loader2 className="animate-spin mx-auto mt-8" />
+  if (loading) return (
+    <div className="flex h-64 items-center justify-center">
+      <Loader2 className="animate-spin w-8 h-8" style={{ color: "#7C6CF0" }} />
+    </div>
+  )
 
-  if (!profile) return <p className="text-center text-muted-foreground font-body">Failed to load taste profile.</p>
+  if (!profile) return (
+    <div className="flex h-64 items-center justify-center">
+      <p className="text-center text-muted-foreground font-sans">
+        Failed to load taste profile.
+      </p>
+    </div>
+  )
+
+  // Calculate Convergence Score
+  const domains = ['spotify', 'anime', 'restaurants'];
+  const activeDomains = domains.filter(d => Object.keys(profile.breakdown?.[d] || {}).length > 0).length;
+  const baseScore = activeDomains === 3 ? 80 : activeDomains === 2 ? 50 : 20;
+
+  const allGenres: Record<string, number> = {};
+  domains.forEach(d => {
+    Object.keys(profile.breakdown?.[d] || {}).forEach(g => {
+      allGenres[g] = (allGenres[g] || 0) + 1;
+    });
+  });
+  
+  const overlapping = Object.values(allGenres).filter(c => c > 1).length;
+  const total = Object.keys(allGenres).length;
+  const bonus = total > 0 ? Math.round((overlapping / total) * 20) : 0;
+  const convergenceScore = Math.min(100, baseScore + bonus);
+
+  // Convert profile object to sorted array for display
+  const topGenres = Object.entries(profile.profile || {})
+    .sort(([, a]: any, [, b]: any) => b - a)
+    .slice(0, 5)
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div className="border border-border/40 overflow-hidden" style={{ background: "hsl(var(--card))" }}>
-        <div className="px-5 py-4 border-b border-border/30">
-          <h3 className="text-sm font-display tracking-wide uppercase" style={{ color: "hsl(var(--card-foreground))" }}>Top Genres</h3>
-        </div>
-        <div className="p-5 space-y-3">
-          {profile.top_genres.map((g: any) => (
-            <li key={g.genre} className="flex justify-between font-body text-sm" style={{ color: "hsl(var(--card-foreground))" }}>
-              <span>{g.genre}</span>
-              <span className="font-mono text-xs">{Math.round(g.score * 100)}%</span>
-            </li>
-          ))}
-        </div>
-      </div>
-
-      <div className="border border-border/40 overflow-hidden" style={{ background: "hsl(var(--card))" }}>
-        <div className="px-5 py-4 border-b border-border/30">
-          <h3 className="text-sm font-display tracking-wide uppercase" style={{ color: "hsl(var(--card-foreground))" }}>Top Sentiments</h3>
-        </div>
-        <div className="p-5 space-y-3">
-          {Object.entries(profile.top_sentiments || {}).map(([s, score]: any) => (
-            <li key={s} className="flex justify-between font-body text-sm capitalize" style={{ color: "hsl(var(--card-foreground))" }}>
-              <span>{s}</span>
-              <span className="font-mono text-xs">{Math.round(score * 100)}%</span>
-            </li>
-          ))}
+    <div className="max-w-4xl mx-auto space-y-8">
+      {/* Header & Halo */}
+      <div className="flex flex-col items-center justify-center py-8">
+        <ConvergenceHalo score={convergenceScore} />
+        <div className="text-center mt-6 space-y-2">
+          <h2 className="text-2xl font-display font-bold text-foreground">
+            Your Taste Profile
+          </h2>
+          <p className="text-sm font-sans text-muted-foreground max-w-md mx-auto">
+            This is the unified model of your preferences across all domains.
+          </p>
         </div>
       </div>
 
-      <div className="md:col-span-2 border border-border/40 overflow-hidden" style={{ background: "hsl(var(--card))" }}>
-        <div className="px-5 py-4 border-b border-border/30">
-          <h3 className="text-sm font-display tracking-wide uppercase" style={{ color: "hsl(var(--card-foreground))" }}>Likes Activity</h3>
-        </div>
-        <div className="p-5 flex gap-8">
-          <div>
-            <p className="text-2xl font-display" style={{ color: "hsl(var(--card-foreground))" }}>{profile.likes_count?.anime || 0}</p>
-            <p className="text-xs font-body text-muted-foreground">Anime Liked</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <ProfileCard title="Top Unified Signals">
+          {topGenres.length > 0 ? (
+            topGenres.map(([genre, score]: any) => (
+              <li key={genre} className="flex justify-between font-sans text-sm capitalize text-foreground py-1">
+                <span>{genre}</span>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {Math.round(score)} pts
+                </span>
+              </li>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">No signals detected yet.</p>
+          )}
+        </ProfileCard>
+
+        <div className="space-y-6">
+          <div style={GLASS_PANEL}>
+            <div className="px-5 py-4 border-b border-white/[0.06]">
+              <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-foreground">
+                Domain Activity
+              </h3>
+            </div>
+            <div className="p-5 flex gap-8">
+              <StatBlock label="Anime Liked"      value={Object.keys(profile.breakdown?.anime || {}).length}       color="#FF7A59" />
+              <StatBlock label="Foods Liked"      value={Object.keys(profile.breakdown?.restaurants || {}).length}  color="#E3A857" />
+            </div>
           </div>
-          <div>
-            <p className="text-2xl font-display" style={{ color: "hsl(var(--card-foreground))" }}>{profile.likes_count?.restaurants || 0}</p>
-            <p className="text-xs font-body text-muted-foreground">Restaurants Liked</p>
+          
+          <div style={GLASS_PANEL} className="p-5">
+             <div className="flex items-center gap-3">
+               <div
+                 className="w-2 h-2 rounded-full"
+                 style={{ backgroundColor: "#7C6CF0", boxShadow: "0 0 6px #7C6CF0" }}
+               />
+               <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-foreground">
+                 Spotify Connection
+               </h3>
+             </div>
+             <p className="text-sm font-sans text-muted-foreground mt-2">
+               {profile.spotify_connected 
+                 ? "Your music taste is actively influencing your recommendations across anime and food."
+                 : "Connect Spotify to unlock full cross-domain convergence."}
+             </p>
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────
+
+function SectionHeader({ title, color }: { title: string; color: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <div
+        className="w-2 h-2 rounded-full"
+        style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}` }}
+      />
+      <h2 className="text-base font-display font-semibold tracking-wide uppercase text-foreground">
+        {title}
+      </h2>
+    </div>
+  )
+}
+
+function ProfileCard({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="overflow-hidden" style={GLASS_PANEL}>
+      <div className="px-5 py-4 border-b border-white/[0.06]">
+        <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-foreground">
+          {title}
+        </h3>
+      </div>
+      <div className="p-5">
+        <ul className="space-y-2">{children}</ul>
+      </div>
+    </div>
+  )
+}
+
+function StatBlock({
+  label,
+  value,
+  color,
+}: {
+  label: string
+  value: number
+  color: string
+}) {
+  return (
+    <div>
+      <p
+        className="text-2xl font-display font-bold"
+        style={{ color }}
+      >
+        {value}
+      </p>
+      <p className="text-xs font-sans text-muted-foreground mt-0.5">{label}</p>
     </div>
   )
 }

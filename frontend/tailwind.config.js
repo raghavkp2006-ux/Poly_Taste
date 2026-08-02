@@ -8,21 +8,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        // ── Palette ──────────────────────────────────────────────────
-        ink: {
-          DEFAULT: "#10262A",
-          light: "#1B3A42",
-          lighter: "#2A4F59",
-        },
-        parchment: {
-          DEFAULT: "#EFE6D8",
-          dark: "#D9CEBC",
-        },
-        "stage-magenta": "#C6318C",
-        "cel-amber": "#E8A23D",
-        "brick-red": "#B23A2E",
+        // ── Domain accent raw values (used as glows / borders only) ────────
+        "music-accent": "#7C6CF0",
+        "anime-accent": "#FF7A59",
+        "food-accent":  "#E3A857",
+        "convergence-from": "#7C6CF0",
+        "convergence-to":   "#3ED6C4",
 
-        // ── Semantic tokens (via CSS vars) ──────────────────────────
+        // ── Graphite base ───────────────────────────────────────────────────
+        graphite: {
+          DEFAULT: "#0A0E14",
+          panel:   "#12181F",
+          rail:    "#0D1117",
+        },
+
+        // ── Semantic tokens (via CSS vars) — read by shadcn components ──────
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
@@ -58,48 +58,119 @@ export default {
           foreground: "hsl(var(--sidebar-foreground))",
           accent: "hsl(var(--sidebar-accent))",
         },
-        anime: "hsl(var(--color-anime))",
-        music: "hsl(var(--color-music))",
-        food: "hsl(var(--color-food))",
+        // Domain semantic (for Tailwind class usage)
+        anime:       "hsl(var(--color-anime))",
+        music:       "hsl(var(--color-music))",
+        food:        "hsl(var(--color-food))",
         convergence: "hsl(var(--color-convergence))",
         border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
+        input:  "hsl(var(--input))",
+        ring:   "hsl(var(--ring))",
       },
+
       borderRadius: {
         none: "0",
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        sm:   "0.375rem",
+        DEFAULT: "0.5rem",
+        md:   "0.625rem",
+        lg:   "0.75rem",
+        xl:   "1rem",
+        "2xl": "1.25rem",
+        full: "9999px",
       },
+
       fontFamily: {
-        sans: ["Fraunces", "Georgia", "serif"],
-        display: ["Archivo Black", "Impact", "sans-serif"],
-        mono: ["IBM Plex Mono", "monospace"],
+        // Display headers
+        display: ["Space Grotesk", "system-ui", "sans-serif"],
+        // Body copy
+        sans:    ["Inter", "system-ui", "sans-serif"],
+        // Scores / metadata
+        mono:    ["JetBrains Mono", "monospace"],
       },
+
       keyframes: {
-        "stamp-in": {
-          "0%": { opacity: "0", transform: "scale(2.4) rotate(-14deg)" },
-          "55%": { opacity: "1", transform: "scale(0.92) rotate(1.5deg)" },
-          "100%": { opacity: "1", transform: "scale(1) rotate(-3deg)" },
+        // Ambient background sphere drift
+        "drift-a": {
+          "0%":   { transform: "translate(0, 0) scale(1)" },
+          "33%":  { transform: "translate(4%, 6%) scale(1.06)" },
+          "66%":  { transform: "translate(-3%, 2%) scale(0.97)" },
+          "100%": { transform: "translate(0, 0) scale(1)" },
         },
-        "ticket-enter": {
-          "0%": { opacity: "0", transform: "translateY(10px) scale(0.97)" },
+        "drift-b": {
+          "0%":   { transform: "translate(0, 0) scale(1)" },
+          "40%":  { transform: "translate(-5%, -4%) scale(1.08)" },
+          "80%":  { transform: "translate(3%, 5%) scale(0.95)" },
+          "100%": { transform: "translate(0, 0) scale(1)" },
+        },
+        "drift-c": {
+          "0%":   { transform: "translate(0, 0) scale(1)" },
+          "50%":  { transform: "translate(6%, -3%) scale(1.04)" },
+          "100%": { transform: "translate(0, 0) scale(1)" },
+        },
+        // Halo convergence
+        "halo-drift-music": {
+          "0%":   { transform: "translate(-20px, -15px)", opacity: "0.7" },
+          "50%":  { transform: "translate(-8px, -5px)",  opacity: "1" },
+          "100%": { transform: "translate(0, 0)",        opacity: "1" },
+        },
+        "halo-drift-anime": {
+          "0%":   { transform: "translate(20px, -15px)", opacity: "0.7" },
+          "50%":  { transform: "translate(8px, -5px)",  opacity: "1" },
+          "100%": { transform: "translate(0, 0)",        opacity: "1" },
+        },
+        "halo-drift-food": {
+          "0%":   { transform: "translate(0, 25px)", opacity: "0.7" },
+          "50%":  { transform: "translate(0, 10px)", opacity: "1" },
+          "100%": { transform: "translate(0, 0)",     opacity: "1" },
+        },
+        "halo-spin": {
+          from: { transform: "rotate(0deg)" },
+          to:   { transform: "rotate(360deg)" },
+        },
+        // Card signal-in entrance
+        "signal-in": {
+          "0%":   { opacity: "0", transform: "translateY(16px) scale(0.96)" },
           "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
         },
-        "fade-in": {
+        // Generic fade-up
+        "fade-up": {
           from: { opacity: "0", transform: "translateY(8px)" },
-          to: { opacity: "1", transform: "translateY(0)" },
+          to:   { opacity: "1", transform: "translateY(0)" },
         },
+        // Glow pulse for active indicators
+        "glow-pulse": {
+          "0%, 100%": { opacity: "1" },
+          "50%":      { opacity: "0.5" },
+        },
+        // Gradient shimmer for skeletons
         gradient: {
           to: { backgroundPosition: "200% center" },
         },
+        // Score ring dash animation
+        "ring-draw": {
+          from: { strokeDashoffset: "var(--ring-circumference)" },
+          to:   { strokeDashoffset: "var(--ring-dashoffset)" },
+        },
       },
+
       animation: {
-        "stamp-in": "stamp-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both",
-        "ticket-enter": "ticket-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both",
-        "fade-in": "fade-in 0.4s ease-out forwards",
-        gradient: "gradient 8s linear infinite",
+        "drift-a":       "drift-a 28s ease-in-out infinite",
+        "drift-b":       "drift-b 36s ease-in-out infinite reverse",
+        "drift-c":       "drift-c 22s ease-in-out infinite",
+        "halo-spin":     "halo-spin 12s linear infinite",
+        "signal-in":     "signal-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards",
+        "fade-up":       "fade-up 0.4s ease-out forwards",
+        "glow-pulse":    "glow-pulse 2s ease-in-out infinite",
+        gradient:        "gradient 8s linear infinite",
+        "ring-draw":     "ring-draw 1s ease-out forwards",
+      },
+
+      backdropBlur: {
+        xs: "2px",
+      },
+
+      backgroundSize: {
+        "200%": "200%",
       },
     },
   },

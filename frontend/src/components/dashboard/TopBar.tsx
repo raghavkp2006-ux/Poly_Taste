@@ -9,41 +9,53 @@ interface TopBarProps {
 }
 
 export function TopBar({ userName, onLogout }: TopBarProps) {
+  // Force dark mode
   useEffect(() => {
     document.documentElement.classList.add("dark")
     localStorage.setItem("poly-theme", "dark")
   }, [])
 
-  const firstName = userName.split(" ")[0]
+  const displayName = userName
+    ? (userName.includes("@") ? userName.split("@")[0] : userName.split(" ")[0]) || "You"
+    : "You"
+  const initial = displayName[0]?.toUpperCase() ?? "U"
 
   return (
     <header
       className={cn(
         "flex items-center justify-between gap-4 px-4 md:px-6 py-3",
-        "border-b border-border/40 sticky top-0 z-30"
+        "border-b border-white/[0.06]",
+        "sticky top-0 z-30",
+        "glass-panel"
       )}
-      style={{ backgroundColor: "hsl(var(--sidebar))" }}
     >
-      {/* Greeting */}
+      {/* Greeting section */}
       <div className="flex items-center gap-3 min-w-0">
+        {/* Avatar — convergence gradient ring */}
         <div
-          className="w-9 h-9 shrink-0 flex items-center justify-center font-display text-sm tracking-wide"
-          style={{ backgroundColor: "hsl(var(--sidebar-accent))", color: "hsl(var(--sidebar-foreground))" }}
+          className="relative h-9 w-9 shrink-0 rounded-full flex items-center justify-center"
+          style={{
+            background: "linear-gradient(135deg, #7C6CF0 0%, #3ED6C4 100%)",
+            padding: "1.5px",
+          }}
         >
-          {firstName[0]?.toUpperCase() ?? "U"}
+          <div
+            className="h-full w-full rounded-full flex items-center justify-center text-sm font-display font-semibold text-foreground"
+            style={{ background: "#12181F" }}
+          >
+            {initial}
+          </div>
         </div>
+
         <div className="min-w-0">
-          <h1 className="text-base font-body font-semibold truncate">
-            <span className="text-foreground">Welcome back,</span>{" "}
-            <span
-              className="font-display tracking-wide"
-              style={{ color: "hsl(var(--sidebar-accent))" }}
-            >
-              {firstName}
+          <h1 className="text-sm font-sans font-medium truncate text-foreground leading-tight">
+            Welcome back,{" "}
+            <span className="font-display font-semibold text-gradient-convergence">
+              {displayName}
             </span>
           </h1>
-          <p className="text-xs text-muted-foreground hidden sm:block font-body">
-            Your passport is stamped — dive in.
+          <p className="text-xs text-muted-foreground hidden sm:block font-sans leading-tight mt-0.5">
+            Your signal is live.
           </p>
         </div>
       </div>
@@ -54,7 +66,7 @@ export function TopBar({ userName, onLogout }: TopBarProps) {
           variant="ghost"
           size="icon"
           onClick={onLogout}
-          className="rounded-none text-muted-foreground hover:text-brick-red transition-colors"
+          className="text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
           aria-label="Logout"
         >
           <LogOut className="h-4 w-4" />
