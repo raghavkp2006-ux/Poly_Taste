@@ -84,4 +84,10 @@ export const api = {
     getActivity: () =>
       fetchApi<import("./types").ActivityItem[]>("/api/activity"),
   },
+  anilist: {
+    loginUrl: `${API_BASE}/anilist/login`,
+    getStatus: () =>
+      fetchApi<{ connected: boolean; anilist_username: string | null }>("/anilist/status"),
+  },
 }
+

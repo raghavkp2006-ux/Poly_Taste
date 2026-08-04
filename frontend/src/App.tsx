@@ -255,18 +255,21 @@ function MusicSection() {
         </p>
       </div>
 
-      <a
-        href={api.auth.loginUrl}
-        className="inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-sans font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C6CF0] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0E14]"
-        style={{
-          backgroundColor: `${MUSIC_ACCENT}20`,
-          color:            MUSIC_ACCENT,
-          border:           `1px solid ${MUSIC_ACCENT}40`,
-          boxShadow:        `0 0 20px ${MUSIC_ACCENT}20`,
-        }}
-      >
-        Connect Spotify
-      </a>
+      <div className="flex flex-col gap-2 items-center">
+        <a
+          href={api.auth.loginUrl}
+          className="inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-sans font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C6CF0] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0E14]"
+          style={{
+            backgroundColor: `${MUSIC_ACCENT}20`,
+            color:            MUSIC_ACCENT,
+            border:           `1px solid ${MUSIC_ACCENT}40`,
+            boxShadow:        `0 0 20px ${MUSIC_ACCENT}20`,
+          }}
+        >
+          Connect Spotify
+        </a>
+        <a href={api.anilist.loginUrl}>Connect AniList</a>
+      </div>
     </div>
   )
 }

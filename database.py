@@ -159,6 +159,26 @@ if _use_local:
         comment = Column(String, nullable=True)
         created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
+    class AniListUser(Base):  # type: ignore[valid-type]
+        """ORM model for local-dev SQLite AniList user-token storage."""
+
+        __tablename__ = "anilist_users"
+
+        user_id = Column(String, ForeignKey("users.id"), primary_key=True, index=True)
+        anilist_id = Column(Integer, nullable=False)
+        anilist_username = Column(String, nullable=False)
+        access_token = Column(String, nullable=False)
+        connected_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+        def to_dict(self) -> Dict[str, Any]:
+            return {
+                "user_id": self.user_id,
+                "anilist_id": self.anilist_id,
+                "anilist_username": self.anilist_username,
+                "access_token": self.access_token,
+                "connected_at": self.connected_at.isoformat() if self.connected_at else None,
+            }
+
     Base.metadata.create_all(bind=_engine)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
 
@@ -176,6 +196,42 @@ if _use_local:
         try:
             user = db.query(SpotifyUser).filter(SpotifyUser.user_id == user_id).first()
             return user.to_dict() if user else None
+        finally:
+            db.close()
+
+    def get_anilist_user(user_id: str) -> Optional[Dict[str, Any]]:
+        db = SessionLocal()
+        try:
+            user = db.query(AniListUser).filter(AniListUser.user_id == user_id).first()
+            return user.to_dict() if user else None
+        finally:
+            db.close()
+
+    def upsert_anilist_user(
+        user_id: str,
+        anilist_id: int,
+        anilist_username: str,
+        access_token: str,
+    ) -> None:
+        db = SessionLocal()
+        try:
+            user = db.query(AniListUser).filter(AniListUser.user_id == user_id).first()
+            if user:
+                user.anilist_id = anilist_id
+                user.anilist_username = anilist_username
+                user.access_token = access_token
+            else:
+                user = AniListUser(
+                    user_id=user_id,
+                    anilist_id=anilist_id,
+                    anilist_username=anilist_username,
+                    access_token=access_token,
+                )
+                db.add(user)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"[database] upsert_anilist_user({user_id}): {e}")
         finally:
             db.close()
 
@@ -355,12 +411,14 @@ else:
     UserLike = None      # type: ignore[assignment]
     Restaurant = None    # type: ignore[assignment]
     Review = None        # type: ignore[assignment]
+    AniListUser = None   # type: ignore[assignment]
     Base = None          # type: ignore[assignment]
     get_db = None        # type: ignore[assignment]
 
     DYNAMODB_TABLE_NAME = os.getenv("DYNAMODB_TABLE_NAME", "spotify_users")
     USER_LIKES_TABLE_NAME = os.getenv("USER_LIKES_TABLE_NAME", "user_likes")
     USERS_TABLE_NAME = os.getenv("USERS_TABLE_NAME", "users")
+    ANILIST_USERS_TABLE_NAME = os.getenv("ANILIST_USERS_TABLE_NAME", "anilist_users")
 
     def get_dynamodb_resource():  # noqa: D103
         return boto3.resource("dynamodb")
@@ -480,3 +538,33 @@ else:
         except ClientError as e:
             print(f"[database] get_likes({user_id}): {e}")
             return []
+
+    def get_anilist_user(user_id: str) -> Optional[Dict[str, Any]]:
+        dynamodb = get_dynamodb_resource()
+        table = dynamodb.Table(ANILIST_USERS_TABLE_NAME)
+        try:
+            response = table.get_item(Key={"user_id": user_id})
+            return response.get("Item")
+        except ClientError as e:
+            print(f"[database] get_anilist_user({user_id}): {e}")
+            return None
+
+    def upsert_anilist_user(
+        user_id: str,
+        anilist_id: int,
+        anilist_username: str,
+        access_token: str,
+    ) -> None:
+        dynamodb = get_dynamodb_resource()
+        table = dynamodb.Table(ANILIST_USERS_TABLE_NAME)
+        item: Dict[str, Any] = {
+            "user_id": user_id,
+            "anilist_id": anilist_id,
+            "anilist_username": anilist_username,
+            "access_token": access_token,
+            "connected_at": datetime.now(timezone.utc).isoformat(),
+        }
+        try:
+            table.put_item(Item=item)
+        except ClientError as e:
+            print(f"[database] upsert_anilist_user({user_id}): {e}")
