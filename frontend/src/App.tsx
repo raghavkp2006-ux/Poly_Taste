@@ -13,16 +13,11 @@ import { Button, Input, Switch } from "./components/ui"
 import { Search, Loader2 } from "lucide-react"
 import type { PageId } from "./types"
 
-// ── Domain accent constants ──────────────────────────────────────────
-const FOOD_ACCENT  = "#E3A857"
-const MUSIC_ACCENT = "#7C6CF0"
+import { GLASS_PANEL, colors } from "./tokens"
 
-const GLASS_PANEL = {
-  background:     "rgba(18,24,31,0.75)",
-  backdropFilter: "blur(10px)",
-  border:         "1px solid rgba(255,255,255,0.06)",
-  borderRadius:   "0.75rem",
-} as const
+// ── Domain accent constants ──────────────────────────────────────────
+const FOOD_ACCENT  = colors.food
+const MUSIC_ACCENT = colors.music
 
 // ── Derive wizard resume step from OAuth redirect params ────────────
 function detectResumeStep(): number {

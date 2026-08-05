@@ -80,8 +80,8 @@ export default {
       },
 
       fontFamily: {
-        // Display headers
-        display: ["Space Grotesk", "system-ui", "sans-serif"],
+        // Display headers (Interchange: Fraunces; legacy fallback: Space Grotesk)
+        display: ["Fraunces", "Space Grotesk", "Georgia", "serif"],
         // Body copy
         sans:    ["Inter", "system-ui", "sans-serif"],
         // Scores / metadata
