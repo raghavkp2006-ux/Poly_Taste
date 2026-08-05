@@ -466,7 +466,7 @@ def fetch_user_anime_list(access_token: str, anilist_user_id: int) -> List[Dict[
             timeout=8
         )
         if response.status_code != 200:
-            print(f"[anilist] fetch_user_anime_list HTTP {response.status_code}: {response.text[:200]}")
+            print(f"[anilist] fetch_user_anime_list FAILED for user {anilist_user_id}: HTTP {response.status_code} — {response.text[:200]}")
             return []
             
         data = response.json()
@@ -498,6 +498,6 @@ def fetch_user_anime_list(access_token: str, anilist_user_id: int) -> List[Dict[
                 })
         return results
     except Exception as exc:
-        print(f"[anilist] fetch_user_anime_list error: {exc}")
+        print(f"[anilist] fetch_user_anime_list FAILED for user {anilist_user_id}: {exc}")
         return []
 

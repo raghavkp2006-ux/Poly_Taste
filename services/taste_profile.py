@@ -187,7 +187,9 @@ def _anilist_genre_signal(user_id: str) -> Dict[str, float]:
         if score > 0:
             weight = (score / 10.0) * _ANILIST_WEIGHT
         else:
-            weight = 0.3 * _ANILIST_WEIGHT
+            # score == 0 means "not yet rated" on AniList — watching alone
+            # is not a reliable taste signal, so skip entirely.
+            continue
 
         anime_entry = anime_catalog[idx]
         for genre in anime_entry.get("genres", []):
