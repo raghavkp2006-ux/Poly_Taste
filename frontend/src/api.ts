@@ -43,7 +43,10 @@ export const api = {
   },
   anime: {
     getTop: () => fetchApi<any[]>("/anime/top"),
-    search: (q: string) => fetchApi<any[]>(`/anime/search?q=${encodeURIComponent(q)}`),
+    search: async (q: string) => {
+      const res = await fetchApi<{ results: any[] }>(`/anime/search?q=${encodeURIComponent(q)}`);
+      return res.results || [];
+    },
     getUpcoming: () => fetchApi<any[]>("/anime/upcoming"),
     getDetail: (mal_id: number) => fetchApi<any>(`/anime/${mal_id}`),
     getReviews: (mal_id: number) => fetchApi<any[]>(`/anime/${mal_id}/reviews`),
@@ -52,17 +55,35 @@ export const api = {
     recommend: (mal_id: number, personalize: boolean = false) => 
       fetchApi<{ recommendations: any[], personalized: boolean }>(`/anime/${mal_id}/recommend?personalize=${personalize}`),
     getDashboardRecommendations: async () => {
-      // Hardcoded liked_ids for demo purposes: One Piece (21), Bleach (269), Naruto Shippuuden (1735)
-      const res = await fetchApi<{ recommendations: any[] }>("/anime/recommendations", {
-        method: "POST",
-        body: JSON.stringify({ liked_ids: ["21", "269", "1735"] })
-      });
-      return res.recommendations.map(r => ({
-        ...r,
-        id: String(r.id),
-        score: Math.round(r.score * 100), // convert 0-1 score to 0-100% match
-        category: "anime"
-      })) as import("./types").Recommendation[];
+      try {
+        const profile = await fetchApi<any>("/taste-profile");
+        const animeLikes = Object.keys(profile.breakdown?.anime || {});
+        const anilistWatched = (profile.anilist_watched || []).map((x: any) => String(x.mal_id));
+        const combinedIds = Array.from(new Set([...animeLikes, ...anilistWatched]));
+        const liked_ids = combinedIds.length > 0 ? combinedIds : ["21", "269", "1735"];
+        
+        const res = await fetchApi<{ recommendations: any[] }>("/anime/recommendations?limit=25", {
+          method: "POST",
+          body: JSON.stringify({ liked_ids })
+        });
+        return res.recommendations.map(r => ({
+          ...r,
+          id: String(r.id),
+          score: Math.round(r.score * 100),
+          category: "anime"
+        })) as import("./types").Recommendation[];
+      } catch (e) {
+        const res = await fetchApi<{ recommendations: any[] }>("/anime/recommendations?limit=25", {
+          method: "POST",
+          body: JSON.stringify({ liked_ids: ["21", "269", "1735"] })
+        });
+        return res.recommendations.map(r => ({
+          ...r,
+          id: String(r.id),
+          score: Math.round(r.score * 100),
+          category: "anime"
+        })) as import("./types").Recommendation[];
+      }
     },
     like: (mal_id: number) => fetchApi("/anime/" + mal_id + "/like", { method: "POST" }),
     unlike: (mal_id: number) => fetchApi("/anime/" + mal_id + "/like", { method: "DELETE" }),
@@ -88,6 +109,10 @@ export const api = {
     loginUrl: `${API_BASE}/anilist/login`,
     getStatus: () =>
       fetchApi<{ connected: boolean; anilist_username: string | null }>("/anilist/status"),
+  },
+  connections: {
+    getStatus: () =>
+      fetchApi<{ spotify: boolean; anilist: boolean; location: boolean }>("/connections/status"),
   },
 }
 

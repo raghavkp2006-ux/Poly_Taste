@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { api } from "@/api"
+import { getHighResImageUrl } from "@/lib/utils"
 import { Button, Skeleton } from "@/components/ui"
 import { AnimeGrid } from "./AnimeGrid"
 import { ArrowLeft, ExternalLink } from "lucide-react"
@@ -22,7 +23,7 @@ export function AnimeDetail({
   onBack: () => void
   onSelect: (anime: any) => void
 }) {
-  const mal_id = anime.mal_id || anime.idMal
+  const mal_id = anime.mal_id || anime.idMal || anime.id
 
   const [reviews,  setReviews]  = useState<any[]>([])
   const [loadingR, setLoadingR] = useState(true)
@@ -60,13 +61,24 @@ export function AnimeDetail({
       .finally(() => setLoadingP(false))
   }, [mal_id])
 
-  const imgSrc =
+  const imgSrc = getHighResImageUrl(
     anime.images?.jpg?.large_image_url ||
     anime.coverImage?.extraLarge ||
     anime.images?.jpg?.image_url ||
-    anime.cover_image
+    anime.cover_image ||
+    anime.imageUrl
+  )
 
-  const genres: string[] = anime.genres || anime.genres_raw || []
+  let genres: string[] = []
+  if (Array.isArray(anime.genres)) {
+    genres = anime.genres
+  } else if (typeof anime.genres === "string") {
+    genres = [anime.genres]
+  } else if (Array.isArray(anime.genres_raw)) {
+    genres = anime.genres_raw
+  } else if (typeof anime.genres_raw === "string") {
+    genres = [anime.genres_raw]
+  }
 
   return (
     <div className="space-y-8 pb-16 animate-in fade-in">

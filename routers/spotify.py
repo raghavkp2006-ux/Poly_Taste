@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Query, Response, Depends
 from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
 
-from services.auth import create_session_cookie, get_current_user_id
+from services.auth import create_session_cookie, get_current_user_id, create_state_token, verify_state_token
 from database import get_user, upsert_user, delete_user
 from models.spotify_dnn import SpotifySimilarityDNN
 
@@ -288,7 +288,14 @@ def refresh_spotify_token(user: Dict[str, Any]) -> str:
     new_refresh_token = token_info.get("refresh_token", user.get("refresh_token"))
     new_expires_at = int(time.time()) + token_info["expires_in"]
 
-    upsert_user(user["user_id"], new_access_token, new_refresh_token, new_expires_at)
+    upsert_user(
+        user["user_id"],
+        new_access_token,
+        new_refresh_token,
+        new_expires_at,
+        user.get("spotify_account_id"),
+        user.get("spotify_display_name")
+    )
     return new_access_token
 
 
@@ -310,23 +317,27 @@ def get_valid_access_token(user_id: str) -> str:
 # ===========================================================================
 
 @router.get("/login")
-def login_to_spotify():
+def login_to_spotify(user_id: str = Depends(get_current_user_id)):
+    state = create_state_token(user_id)
     scope = "user-top-read user-library-read"
     url = (
         f"https://accounts.spotify.com/authorize?response_type=code"
         f"&client_id={SPOTIFY_CLIENT_ID}"
         f"&scope={scope}"
         f"&redirect_uri={SPOTIFY_REDIRECT_URI}"
+        f"&state={state}"
     )
     return RedirectResponse(url)
 
 
 @router.get("/callback")
-def spotify_callback(response: Response, code: str | None = None, error: str | None = None):
+def spotify_callback(code: str | None = None, state: str | None = None, error: str | None = None):
     if error:
         raise HTTPException(status_code=400, detail="Spotify login was cancelled or denied")
-    if not code and not error:
+    if not code or not state:
         raise HTTPException(status_code=400, detail="Login must start at /spotify/login")
+
+    user_id = verify_state_token(state)
 
     url = "https://accounts.spotify.com/api/token"
     headers = get_auth_header()
@@ -352,21 +363,21 @@ def spotify_callback(response: Response, code: str | None = None, error: str | N
     if user_response.status_code != 200:
         raise HTTPException(status_code=400, detail="Failed to get user profile")
     
-    spotify_user_id = user_response.json()["id"]
+    profile = user_response.json()
+    spotify_account_id = profile["id"]
+    spotify_display_name = profile.get("display_name")
 
-    upsert_user(spotify_user_id, access_token, refresh_token, expires_at)
-    
-    cookie_value = create_session_cookie(spotify_user_id)
-    response.set_cookie(
-        key="session",
-        value=cookie_value,
-        httponly=True,
-        samesite="lax"
+    upsert_user(
+        user_id=user_id,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_at=expires_at,
+        spotify_account_id=spotify_account_id,
+        spotify_display_name=spotify_display_name
     )
 
-    response.status_code = 302
-    response.headers["Location"] = "http://localhost:5173/"
-    return response
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    return RedirectResponse(f"{FRONTEND_URL}/dashboard?spotify=connected")
 
 
 # ===========================================================================

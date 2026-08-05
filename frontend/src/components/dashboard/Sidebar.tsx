@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import type { PageId } from "../../types"
+import { api } from "../../api"
 
 interface NavItem {
   id: PageId
@@ -36,6 +37,49 @@ interface SidebarProps {
   onLogout?: () => void
   collapsed: boolean
   onToggleCollapse: () => void
+  connections?: { spotify: boolean; anilist: boolean; location: boolean } | null
+}
+
+function ConnectionItem({
+  label,
+  connected,
+  color,
+  onClick
+}: {
+  label: string
+  connected: boolean
+  color: string
+  onClick: () => void
+}) {
+  return (
+    <div
+      onClick={onClick}
+      className={cn(
+        "flex items-center justify-between p-1.5 rounded-lg text-xs font-sans transition-all duration-200",
+        !connected && "cursor-pointer hover:bg-white/[0.04]"
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <div
+          className="w-1.5 h-1.5 rounded-full"
+          style={{
+            backgroundColor: connected ? color : "transparent",
+            border: `1.5px solid ${connected ? color : "rgba(255,255,255,0.2)"}`,
+            boxShadow: connected ? `0 0 6px ${color}` : "none",
+          }}
+        />
+        <span className={connected ? "text-foreground font-medium" : "text-muted-foreground"}>
+          {label}
+        </span>
+      </div>
+      <span
+        className="text-[9px] font-mono uppercase tracking-wider"
+        style={{ color: connected ? "#3ED6C4" : "#7B8794" }}
+      >
+        {connected ? "Connected" : "Connect"}
+      </span>
+    </div>
+  )
 }
 
 export function Sidebar({
@@ -44,6 +88,7 @@ export function Sidebar({
   onLogout,
   collapsed,
   onToggleCollapse,
+  connections,
 }: SidebarProps) {
   return (
     <>
@@ -174,6 +219,66 @@ export function Sidebar({
             )
           })}
         </nav>
+
+        {/* Connection status indicators */}
+        {connections && (
+          !collapsed ? (
+            <div className="px-4 py-3 border-t border-white/[0.06] space-y-2 shrink-0">
+              <div className="text-[10px] font-display font-semibold uppercase tracking-wider text-muted-foreground">
+                Connections
+              </div>
+              <div className="flex flex-col gap-1">
+                <ConnectionItem
+                  label="Spotify"
+                  connected={connections.spotify}
+                  color="#7C6CF0"
+                  onClick={() => {
+                    if (!connections.spotify) window.location.href = api.auth.loginUrl
+                  }}
+                />
+                <ConnectionItem
+                  label="AniList"
+                  connected={connections.anilist}
+                  color="#4A90E2"
+                  onClick={() => {
+                    if (!connections.anilist) window.location.href = api.anilist.loginUrl
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2 py-3 border-t border-white/[0.06] shrink-0">
+              <div
+                className="w-3.5 h-3.5 rounded-full flex items-center justify-center cursor-pointer relative"
+                style={{
+                  backgroundColor: connections.spotify ? "#7C6CF0" : "transparent",
+                  border: `1.5px solid ${connections.spotify ? "#7C6CF0" : "rgba(255,255,255,0.15)"}`,
+                  boxShadow: connections.spotify ? "0 0 6px #7C6CF0" : "none"
+                }}
+                onClick={() => {
+                  if (!connections.spotify) window.location.href = api.auth.loginUrl
+                }}
+                title={`Spotify: ${connections.spotify ? "Connected" : "Not connected (Click to connect)"}`}
+              >
+                <span className="text-[8px] text-white font-bold">S</span>
+              </div>
+              <div
+                className="w-3.5 h-3.5 rounded-full flex items-center justify-center cursor-pointer relative"
+                style={{
+                  backgroundColor: connections.anilist ? "#4A90E2" : "transparent",
+                  border: `1.5px solid ${connections.anilist ? "#4A90E2" : "rgba(255,255,255,0.15)"}`,
+                  boxShadow: connections.anilist ? "0 0 6px #4A90E2" : "none"
+                }}
+                onClick={() => {
+                  if (!connections.anilist) window.location.href = api.anilist.loginUrl
+                }}
+                title={`AniList: ${connections.anilist ? "Connected" : "Not connected (Click to connect)"}`}
+              >
+                <span className="text-[8px] text-white font-bold">A</span>
+              </div>
+            </div>
+          )
+        )}
 
         {/* Bottom controls */}
         <div className="p-3 border-t border-white/[0.06] space-y-1 shrink-0">

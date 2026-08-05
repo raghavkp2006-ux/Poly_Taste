@@ -1,6 +1,8 @@
 import { Tv, UtensilsCrossed, Music, AlertCircle } from "lucide-react"
 import { motion } from "framer-motion"
+import { getHighResImageUrl } from "../../lib/utils"
 import type { Recommendation, Category, PageId } from "../../types"
+import { api } from "../../api"
 
 // ── Domain meta ──────────────────────────────────────────────────────
 
@@ -43,6 +45,7 @@ interface RecommendationRowProps {
   error: string | null
   onRetry: () => void
   onNavigate: (page: PageId) => void
+  isConnected?: boolean
 }
 
 export function RecommendationRow({
@@ -52,6 +55,7 @@ export function RecommendationRow({
   error,
   onRetry,
   onNavigate,
+  isConnected = true,
 }: RecommendationRowProps) {
   const meta = DOMAIN[category]
   const Icon = meta.icon
@@ -74,7 +78,7 @@ export function RecommendationRow({
         {/* Section icon */}
         <Icon className="h-4 w-4" style={{ color: meta.color, opacity: 0.7 }} />
 
-        {items.length > 0 && (
+        {isConnected && items.length > 0 && (
           <span
             className="ml-auto text-[10px] font-mono uppercase tracking-widest px-2 py-0.5 rounded-full"
             style={{
@@ -93,8 +97,13 @@ export function RecommendationRow({
         <SignalCardSkeleton category={category} />
       ) : error ? (
         <ErrorState message={error} onRetry={onRetry} color={meta.color} />
-      ) : items.length === 0 ? (
-        <EmptyState category={category} meta={meta} onNavigate={onNavigate} />
+      ) : (!isConnected || items.length === 0) ? (
+        <EmptyState
+          category={category}
+          meta={meta}
+          onNavigate={onNavigate}
+          isConnected={isConnected}
+        />
       ) : (
         <div className="flex gap-4 pb-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
           {items.map((item, i) => (
@@ -170,7 +179,7 @@ function SignalCard({
         <div className="relative h-28 overflow-hidden">
           {item.imageUrl ? (
             <img
-              src={item.imageUrl}
+              src={getHighResImageUrl(item.imageUrl)}
               alt={item.title}
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
               loading="lazy"
@@ -364,13 +373,47 @@ function EmptyState({
   category,
   meta,
   onNavigate,
+  isConnected = true,
 }: {
   category: Category
   meta: typeof DOMAIN[Category]
   onNavigate: (page: PageId) => void
+  isConnected?: boolean
 }) {
-  const copy = EMPTY_COPY[category]
   const Icon = meta.icon
+
+  let title = EMPTY_COPY[category].title
+  let description = EMPTY_COPY[category].description
+  let action = EMPTY_COPY[category].action
+
+  const isMusic = category === "music"
+  const isAnime = category === "anime"
+
+  if (!isConnected) {
+    if (isMusic) {
+      title = "Connect Spotify to see real picks here"
+      description = "Link your Spotify account to activate your music signal."
+      action = "Connect Spotify"
+    } else if (isAnime) {
+      title = "Connect AniList to see real picks here"
+      description = "Link your AniList account to activate your anime signal."
+      action = "Connect AniList"
+    }
+  }
+
+  const handleAction = () => {
+    if (!isConnected) {
+      if (isMusic) {
+        window.location.href = api.auth.loginUrl
+      } else if (isAnime) {
+        window.location.href = api.anilist.loginUrl
+      }
+    } else {
+      if (category === "anime")      onNavigate("anime")
+      else if (category === "restaurant") onNavigate("restaurants")
+      else                           onNavigate("music")
+    }
+  }
 
   return (
     <div
@@ -384,20 +427,16 @@ function EmptyState({
         <Icon className="h-5 w-5" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-sans font-medium text-foreground">{copy.title}</p>
-        <p className="text-xs font-sans text-muted-foreground mt-0.5">{copy.description}</p>
+        <p className="text-sm font-sans font-medium text-foreground">{title}</p>
+        <p className="text-xs font-sans text-muted-foreground mt-0.5">{description}</p>
       </div>
-      {copy.action && (
+      {action && (
         <button
-          onClick={() => {
-            if (category === "anime")      onNavigate("anime")
-            else if (category === "restaurant") onNavigate("restaurants")
-            else                           onNavigate("music")
-          }}
+          onClick={handleAction}
           className="text-[11px] font-mono uppercase tracking-wider px-3 py-1.5 rounded-lg shrink-0 transition-opacity hover:opacity-80"
           style={{ backgroundColor: `${meta.color}20`, color: meta.color }}
         >
-          {copy.action}
+          {action}
         </button>
       )}
     </div>

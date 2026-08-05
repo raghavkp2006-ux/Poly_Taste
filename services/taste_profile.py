@@ -17,7 +17,8 @@ from __future__ import annotations
 import requests
 from typing import Any, Dict, List, Optional
 
-from database import get_likes
+from database import get_likes, get_anilist_user
+from services.anilist_client import fetch_user_anime_list
 
 # ---------------------------------------------------------------------------
 # Genre crosswalk: Spotify music genre → related anime genre keywords
@@ -76,6 +77,7 @@ CUISINE_CROSSWALK: Dict[str, List[str]] = {
 _SPOTIFY_WEIGHT = 1.0   # Spotify profile already normalized to sum ~50
 _ANIME_WEIGHT   = 2.0   # Each explicit anime like contributes 2.0 per genre
 _RESTAURANT_WEIGHT = 2.0  # Restaurant type contributes 2.0 per liked restaurant
+_ANILIST_WEIGHT = 2.0
 
 
 # ---------------------------------------------------------------------------
@@ -143,6 +145,54 @@ def _anime_genre_signal(user_id: str) -> Dict[str, float]:
         for genre in entry.get("genres", []):
             genre_key = genre.lower()
             profile[genre_key] = profile.get(genre_key, 0.0) + _ANIME_WEIGHT
+
+    return profile
+
+
+def _anilist_genre_signal(user_id: str) -> Dict[str, float]:
+    """
+    Return a genre-frequency dict from the user's AniList anime list.
+    """
+    anilist_user = get_anilist_user(user_id)
+    if not anilist_user:
+        return {}
+
+    access_token = anilist_user.get("access_token")
+    anilist_id = anilist_user.get("anilist_id")
+    if not access_token or not anilist_id:
+        return {}
+
+    anime_list = fetch_user_anime_list(access_token, anilist_id)
+    if not anime_list:
+        return {}
+
+    try:
+        from routers.anime import catalog as anime_catalog, mal_id_to_index  # type: ignore[import]
+    except ImportError:
+        return {}
+
+    profile: Dict[str, float] = {}
+    for entry in anime_list:
+        status = entry.get("status")
+        if status not in {"CURRENT", "COMPLETED", "REPEATING"}:
+            continue
+
+        mal_id = entry.get("mal_id")
+        score = entry.get("score", 0.0)
+
+        idx = mal_id_to_index.get(mal_id)
+        if idx is None:
+            continue
+
+        if score > 0:
+            weight = (score / 10.0) * _ANILIST_WEIGHT
+        else:
+            weight = 0.3 * _ANILIST_WEIGHT
+
+        anime_entry = anime_catalog[idx]
+        for genre in anime_entry.get("genres", []):
+            genre_key = genre.lower()
+            profile[genre_key] = profile.get(genre_key, 0.0) + weight
 
     return profile
 
@@ -224,9 +274,10 @@ def compute_taste_profile(
         spotify_profile = {k: v * _SPOTIFY_WEIGHT for k, v in raw.items()}
 
     anime_profile = _anime_genre_signal(user_id)
+    anilist_profile = _anilist_genre_signal(user_id)
     restaurant_profile = _restaurant_cuisine_signal(user_id)
 
-    merged = _merge_profiles(spotify_profile, anime_profile, restaurant_profile)
+    merged = _merge_profiles(spotify_profile, anime_profile, anilist_profile, restaurant_profile)
 
     # --- Build anime crosswalk from Spotify genres ---
     crosswalk_anime: Dict[str, float] = {}
@@ -239,12 +290,32 @@ def compute_taste_profile(
     # --- Build restaurants crosswalk from Spotify + Anime genres ---
     crosswalk_restaurants: Dict[str, float] = {}
     # Incorporate spotify and anime into the cuisine crosswalk
-    combined_signal = _merge_profiles(spotify_profile, anime_profile)
+    combined_signal = _merge_profiles(spotify_profile, anime_profile, anilist_profile)
     for genre, weight in combined_signal.items():
         for cuisine in CUISINE_CROSSWALK.get(genre, []):
             crosswalk_restaurants[cuisine] = (
                 crosswalk_restaurants.get(cuisine, 0.0) + weight
             )
+
+    # Fetch AniList watched list with titles
+    anilist_watched = []
+    try:
+        anilist_user = get_anilist_user(user_id)
+        if anilist_user:
+            access_token = anilist_user.get("access_token")
+            anilist_id = anilist_user.get("anilist_id")
+            if access_token and anilist_id:
+                raw_list = fetch_user_anime_list(access_token, anilist_id)
+                for entry in raw_list:
+                    if entry.get("status") in {"CURRENT", "COMPLETED", "REPEATING"}:
+                        anilist_watched.append({
+                            "mal_id": entry.get("mal_id"),
+                            "title": entry.get("title"),
+                            "score": entry.get("score"),
+                            "status": entry.get("status")
+                        })
+    except Exception as exc:
+        print(f"[taste_profile] failed to fetch anilist_watched: {exc}")
 
     # Sort merged profile descending by weight
     sorted_profile = dict(
@@ -256,11 +327,14 @@ def compute_taste_profile(
         "breakdown": {
             "spotify": dict(sorted(spotify_profile.items(), key=lambda x: x[1], reverse=True)),
             "anime": anime_profile,
+            "anilist": anilist_profile,
             "restaurants": restaurant_profile,
         },
+        "anilist_watched": anilist_watched,
         "crosswalk_anime": crosswalk_anime,
         "crosswalk_restaurants": crosswalk_restaurants,
     }
+
 
 
 def get_anime_boost_map(user_id: str, spotify_token: Optional[str] = None) -> Dict[str, float]:
@@ -275,6 +349,10 @@ def get_anime_boost_map(user_id: str, spotify_token: Optional[str] = None) -> Di
 
     # Also directly boost genres of liked anime (already in profile)
     for genre, weight in profile_data["breakdown"]["anime"].items():
+        boost_map[genre] = boost_map.get(genre, 0.0) + weight
+
+    # Also directly boost genres of AniList anime
+    for genre, weight in profile_data["breakdown"].get("anilist", {}).items():
         boost_map[genre] = boost_map.get(genre, 0.0) + weight
 
     return boost_map

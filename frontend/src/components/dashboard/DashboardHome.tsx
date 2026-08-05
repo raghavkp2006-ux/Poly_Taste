@@ -55,9 +55,10 @@ interface DashboardHomeProps {
   userName: string
   onLogout: () => void
   onNavigate: (page: PageId) => void
+  connections?: { spotify: boolean; anilist: boolean; location: boolean } | null
 }
 
-export function DashboardHome({ userName, onLogout, onNavigate }: DashboardHomeProps) {
+export function DashboardHome({ userName, onLogout, onNavigate, connections }: DashboardHomeProps) {
   const fetchAnime       = useCallback(() => api.anime.getDashboardRecommendations(), [])
   const fetchRestaurants = useCallback(() => api.recommendations.getByCategory("restaurant"), [])
   const fetchMusic       = useCallback(() => api.recommendations.getByCategory("music"), [])
@@ -73,10 +74,11 @@ export function DashboardHome({ userName, onLogout, onNavigate }: DashboardHomeP
   const categories: {
     category: Category
     state: FetchState<Recommendation[]> & { retry: () => void }
+    isConnected: boolean
   }[] = [
-    { category: "anime",      state: anime },
-    { category: "restaurant", state: restaurants },
-    { category: "music",      state: music },
+    { category: "anime",      state: anime,       isConnected: connections?.anilist ?? true },
+    { category: "restaurant", state: restaurants, isConnected: true },
+    { category: "music",      state: music,       isConnected: connections?.spotify ?? true },
   ]
 
   // Safe display name — handle email addresses (foo@bar.com → foo) and plain names
@@ -86,7 +88,7 @@ export function DashboardHome({ userName, onLogout, onNavigate }: DashboardHomeP
 
   return (
     <div className="flex flex-col min-h-screen">
-      <TopBar userName={displayName} onLogout={onLogout} />
+      <TopBar userName={displayName} onLogout={onLogout} connections={connections} />
 
       <main className="flex-1 p-4 md:p-6 lg:p-8 space-y-10 max-w-[1400px] mx-auto w-full pb-24 md:pb-8">
 
@@ -138,7 +140,7 @@ export function DashboardHome({ userName, onLogout, onNavigate }: DashboardHomeP
 
         {/* Recommendation rows */}
         <div className="space-y-10">
-          {categories.map(({ category, state }) => (
+          {categories.map(({ category, state, isConnected }) => (
             <RecommendationRow
               key={category}
               category={category}
@@ -147,6 +149,7 @@ export function DashboardHome({ userName, onLogout, onNavigate }: DashboardHomeP
               error={state.error}
               onRetry={state.retry}
               onNavigate={onNavigate}
+              isConnected={isConnected}
             />
           ))}
         </div>

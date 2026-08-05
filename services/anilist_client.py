@@ -428,3 +428,76 @@ def fetch_anime_metadata(mal_id: int) -> Optional[Dict[str, Any]]:
     
     print(f"[anilist] metadata unavailable for mal_id={mal_id}")
     return None
+
+
+def fetch_user_anime_list(access_token: str, anilist_user_id: int) -> List[Dict[str, Any]]:
+    """
+    Fetch the authenticated user's complete anime list from AniList.
+    """
+    query = """
+    query ($userId: Int) {
+      MediaListCollection(userId: $userId, type: ANIME) {
+        lists {
+          entries {
+            status
+            score(format: POINT_10)
+            media {
+              idMal
+              title {
+                romaji
+                english
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+    try:
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        response = requests.post(
+            ANILIST_URL,
+            json={"query": query, "variables": {"userId": anilist_user_id}},
+            headers=headers,
+            timeout=8
+        )
+        if response.status_code != 200:
+            print(f"[anilist] fetch_user_anime_list HTTP {response.status_code}: {response.text[:200]}")
+            return []
+            
+        data = response.json()
+        collection = data.get("data", {}).get("MediaListCollection") or {}
+        lists = collection.get("lists") or []
+        
+        results = []
+        for lst in lists:
+            entries = lst.get("entries") or []
+            for entry in entries:
+                media = entry.get("media") or {}
+                mal_id = media.get("idMal")
+                if mal_id is None:
+                    continue
+                score = entry.get("score")
+                try:
+                    score_val = float(score) if score is not None else 0.0
+                except (ValueError, TypeError):
+                    score_val = 0.0
+                
+                title_obj = media.get("title") or {}
+                title = title_obj.get("english") or title_obj.get("romaji") or "Unknown Title"
+                
+                results.append({
+                    "mal_id": int(mal_id),
+                    "score": score_val,
+                    "status": entry.get("status"),
+                    "title": title
+                })
+        return results
+    except Exception as exc:
+        print(f"[anilist] fetch_user_anime_list error: {exc}")
+        return []
+

@@ -7,6 +7,7 @@ import { DashboardHome } from "./components/dashboard/DashboardHome"
 import { AnimeGrid } from "./components/anime/AnimeGrid"
 import { AnimeDetail } from "./components/anime/AnimeDetail"
 import { ConvergenceHalo } from "./components/dashboard/ConvergenceHalo"
+import { OnboardingWizard } from "./components/onboarding/OnboardingWizard"
 import { cn } from "@/lib/utils"
 import { Button, Input, Switch } from "./components/ui"
 import { Search, Loader2 } from "lucide-react"
@@ -23,9 +24,30 @@ const GLASS_PANEL = {
   borderRadius:   "0.75rem",
 } as const
 
+// ── Derive wizard resume step from OAuth redirect params ────────────
+function detectResumeStep(): number {
+  const params = new URLSearchParams(window.location.search)
+  const spotifyDone = params.get("spotify") === "connected"
+  const anilistDone = params.get("anilist") === "connected"
+
+  // Clean params from URL without triggering a reload
+  if (spotifyDone || anilistDone) {
+    const clean = window.location.pathname + window.location.hash
+    window.history.replaceState(null, "", clean)
+  }
+
+  if (spotifyDone && anilistDone) return 3 // Location step
+  if (anilistDone)                return 3 // Location step
+  if (spotifyDone)                return 2 // AniList step
+  return 0
+}
+
 export default function App() {
-  const [user,    setUser]    = useState<{ user_id: string } | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user,           setUser]           = useState<{ user_id: string } | null>(null)
+  const [loading,        setLoading]        = useState(true)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  // Computed once on mount so it's stable across re-renders
+  const [wizardStep]                        = useState(() => detectResumeStep())
 
   useEffect(() => {
     const hash  = window.location.hash
@@ -47,7 +69,33 @@ export default function App() {
 
     function checkSession() {
       api.auth.me()
-        .then(setUser)
+        .then((u) => {
+          setUser(u)
+          // ── Onboarding gate ──────────────────────────────────────
+          const doneKey = `onboarding_done_${u.user_id}`
+          if (localStorage.getItem(doneKey)) {
+            // Already completed onboarding
+            setShowOnboarding(false)
+            return
+          }
+          // Check connection status; if endpoint is absent or all
+          // connected, skip wizard; otherwise show it.
+          api.connections.getStatus()
+            .then((status) => {
+              const fullyConnected = status.spotify && status.anilist
+              if (fullyConnected) {
+                localStorage.setItem(doneKey, "true")
+                setShowOnboarding(false)
+              } else {
+                setShowOnboarding(true)
+              }
+            })
+            .catch(() => {
+              // /connections/status not yet live — show wizard so user
+              // can still connect services opportunistically.
+              setShowOnboarding(true)
+            })
+        })
         .catch(() => setUser(null))
         .finally(() => setLoading(false))
     }
@@ -98,6 +146,22 @@ export default function App() {
     )
   }
 
+  if (showOnboarding) {
+    return (
+      <>
+        <AmbientBackground />
+        <OnboardingWizard
+          userId={user.user_id}
+          initialStep={wizardStep}
+          onComplete={() => {
+            localStorage.setItem(`onboarding_done_${user.user_id}`, "true")
+            setShowOnboarding(false)
+          }}
+        />
+      </>
+    )
+  }
+
   return (
     <>
       <AmbientBackground />
@@ -123,6 +187,16 @@ function DashboardLayout({
   const [currentPage,    setCurrentPage]    = useState<PageId>("home")
   const [selectedAnime,  setSelectedAnime]  = useState<any | null>(null)
   const [collapsed,      setCollapsed]      = useState(false)
+  const [connections,    setConnections]    = useState<{ spotify: boolean; anilist: boolean; location: boolean } | null>(null)
+
+  useEffect(() => {
+    api.connections.getStatus()
+      .then(setConnections)
+      .catch((err) => {
+        console.error("Failed to fetch connection status:", err)
+        setConnections({ spotify: false, anilist: false, location: false })
+      })
+  }, [])
 
   const handleNavigate = (page: PageId, item?: any) => {
     if (page === "anime") {
@@ -149,6 +223,7 @@ function DashboardLayout({
         onLogout={onLogout}
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed(!collapsed)}
+        connections={connections}
       />
 
       <div
@@ -162,6 +237,7 @@ function DashboardLayout({
             userName={userId}
             onLogout={onLogout}
             onNavigate={handleNavigate}
+            connections={connections}
           />
         )}
         {currentPage === "anime" && (
@@ -286,8 +362,10 @@ function AnimeModule({
   const [query,          setQuery]          = useState("")
   const [results,        setResults]        = useState<any[]>([])
   const [upcoming,       setUpcoming]       = useState<any[]>([])
+  const [recommendations, setRecommendations] = useState<any[]>([])
   const [loading,        setLoading]        = useState(false)
   const [loadingUpcoming, setLoadingUpcoming] = useState(true)
+  const [loadingRecs,    setLoadingRecs]    = useState(true)
   const [localSelected,  setLocalSelected]  = useState<any | null>(null)
 
   const selectedAnime  = externalSelectedAnime !== undefined ? externalSelectedAnime : localSelected
@@ -298,6 +376,11 @@ function AnimeModule({
       .then((res) => setUpcoming((res as { upcoming?: any[] }).upcoming || []))
       .catch(console.error)
       .finally(() => setLoadingUpcoming(false))
+
+    api.anime.getDashboardRecommendations()
+      .then((res) => setRecommendations(res || []))
+      .catch(console.error)
+      .finally(() => setLoadingRecs(false))
   }, [])
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -352,16 +435,31 @@ function AnimeModule({
           <AnimeGrid animes={results} onSelect={setSelectedAnime} />
         </section>
       ) : (
-        <section>
-          <SectionHeader title="Upcoming Anime" color="#FF7A59" />
-          {loadingUpcoming ? (
-            <div className="flex justify-center p-12">
-              <Loader2 className="animate-spin w-8 h-8" style={{ color: "#FF7A59" }} />
-            </div>
-          ) : (
-            <AnimeGrid animes={upcoming} onSelect={setSelectedAnime} />
-          )}
-        </section>
+        <div className="space-y-10">
+          <section>
+            <SectionHeader title="Recommended for You" color="#FF7A59" />
+            {loadingRecs ? (
+              <div className="flex justify-center p-12">
+                <Loader2 className="animate-spin w-8 h-8" style={{ color: "#FF7A59" }} />
+              </div>
+            ) : recommendations.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Add anime to your Taste Profile to get recommendations.</p>
+            ) : (
+              <AnimeGrid animes={recommendations} onSelect={setSelectedAnime} />
+            )}
+          </section>
+
+          <section>
+            <SectionHeader title="Upcoming Anime" color="#FF7A59" />
+            {loadingUpcoming ? (
+              <div className="flex justify-center p-12">
+                <Loader2 className="animate-spin w-8 h-8" style={{ color: "#FF7A59" }} />
+              </div>
+            ) : (
+              <AnimeGrid animes={upcoming} onSelect={setSelectedAnime} />
+            )}
+          </section>
+        </div>
       )}
     </div>
   )
@@ -628,6 +726,7 @@ export function TasteProfileModule() {
             </div>
             <div className="p-5 flex gap-8">
               <StatBlock label="Anime Liked"      value={Object.keys(profile.breakdown?.anime || {}).length}       color="#FF7A59" />
+              <StatBlock label="AniList Genres"   value={Object.keys(profile.breakdown?.anilist || {}).length}     color="#4A90E2" />
               <StatBlock label="Foods Liked"      value={Object.keys(profile.breakdown?.restaurants || {}).length}  color="#E3A857" />
             </div>
           </div>
@@ -647,9 +746,76 @@ export function TasteProfileModule() {
                  ? "Your music taste is actively influencing your recommendations across anime and food."
                  : "Connect Spotify to unlock full cross-domain convergence."}
              </p>
+             {!profile.spotify_connected && (
+               <Button
+                 className="mt-4"
+                 style={{ backgroundColor: "#7C6CF0", color: "#fff" }}
+                 onClick={() => window.location.href = "http://localhost:8000/spotify/login"}
+               >
+                 Connect Spotify
+               </Button>
+             )}
+          </div>
+
+          <div style={GLASS_PANEL} className="p-5">
+             <div className="flex items-center gap-3">
+               <div
+                 className="w-2 h-2 rounded-full"
+                 style={{ backgroundColor: "#4A90E2", boxShadow: "0 0 6px #4A90E2" }}
+               />
+               <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-foreground">
+                 AniList Connection
+               </h3>
+             </div>
+             <p className="text-sm font-sans text-muted-foreground mt-2">
+               {profile.anilist_connected 
+                 ? "Your AniList profile is connected and actively influencing your recommendation signals."
+                 : "Connect AniList to unlock full cross-domain convergence."}
+             </p>
+             {!profile.anilist_connected && (
+               <Button
+                 className="mt-4"
+                 style={{ backgroundColor: "#4A90E2", color: "#fff" }}
+                 onClick={() => window.location.href = "http://localhost:8000/anilist/login"}
+               >
+                 Connect AniList
+               </Button>
+             )}
           </div>
         </div>
       </div>
+
+      {profile.anilist_watched && profile.anilist_watched.length > 0 && (
+        <div style={GLASS_PANEL} className="p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: "#4A90E2", boxShadow: "0 0 6px #4A90E2" }}
+            />
+            <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-foreground">
+              Watched on AniList
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {profile.anilist_watched.map((item: any) => (
+              <div 
+                key={item.mal_id} 
+                className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] flex flex-col justify-between"
+              >
+                <span className="text-sm font-sans font-medium text-foreground line-clamp-1">{item.title}</span>
+                <div className="flex items-center justify-between mt-2 text-xs font-mono">
+                  <span className="text-muted-foreground uppercase">{item.status.toLowerCase()}</span>
+                  {item.score > 0 ? (
+                    <span style={{ color: "#FF7A59" }}>{item.score} / 10</span>
+                  ) : (
+                    <span className="text-muted-foreground">Unscored</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

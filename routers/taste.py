@@ -9,7 +9,7 @@ from fastapi import Request
 
 from services.auth import get_current_user_id
 from services.taste_profile import compute_taste_profile
-from database import get_user
+from database import get_user, get_anilist_user
 
 router = APIRouter(tags=["taste"])
 
@@ -46,5 +46,7 @@ def get_taste_profile(
     return {
         "user_id": user_id,
         "spotify_connected": spotify_token is not None,
+        "anilist_connected": get_anilist_user(user_id) is not None,
         **profile_data,
     }
+

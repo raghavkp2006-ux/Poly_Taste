@@ -2,13 +2,15 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui"
 import { LogOut } from "lucide-react"
 import { useEffect } from "react"
+import { api } from "../../api"
 
 interface TopBarProps {
   userName: string
   onLogout: () => void
+  connections?: { spotify: boolean; anilist: boolean; location: boolean } | null
 }
 
-export function TopBar({ userName, onLogout }: TopBarProps) {
+export function TopBar({ userName, onLogout, connections }: TopBarProps) {
   // Force dark mode
   useEffect(() => {
     document.documentElement.classList.add("dark")
@@ -61,7 +63,57 @@ export function TopBar({ userName, onLogout }: TopBarProps) {
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-4">
+        {connections && (
+          <div className="flex items-center gap-2.5">
+            {/* Spotify Badge */}
+            <div
+              onClick={() => {
+                if (!connections.spotify) window.location.href = api.auth.loginUrl
+              }}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] tracking-wide uppercase font-sans border transition-all duration-200",
+                connections.spotify
+                  ? "border-[#7C6CF0]/25 bg-[#7C6CF0]/5 text-[#7C6CF0]"
+                  : "border-white/10 bg-transparent text-muted-foreground cursor-pointer hover:bg-white/5"
+              )}
+              title={connections.spotify ? "Spotify Connected" : "Connect Spotify"}
+            >
+              <div
+                className="w-1 h-1 rounded-full shrink-0"
+                style={{
+                  backgroundColor: connections.spotify ? "#7C6CF0" : "rgba(255,255,255,0.3)",
+                  boxShadow: connections.spotify ? "0 0 4px #7C6CF0" : "none"
+                }}
+              />
+              <span>Spotify</span>
+            </div>
+
+            {/* AniList Badge */}
+            <div
+              onClick={() => {
+                if (!connections.anilist) window.location.href = api.anilist.loginUrl
+              }}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] tracking-wide uppercase font-sans border transition-all duration-200",
+                connections.anilist
+                  ? "border-[#4A90E2]/25 bg-[#4A90E2]/5 text-[#4A90E2]"
+                  : "border-white/10 bg-transparent text-muted-foreground cursor-pointer hover:bg-white/5"
+              )}
+              title={connections.anilist ? "AniList Connected" : "Connect AniList"}
+            >
+              <div
+                className="w-1 h-1 rounded-full shrink-0"
+                style={{
+                  backgroundColor: connections.anilist ? "#4A90E2" : "rgba(255,255,255,0.3)",
+                  boxShadow: connections.anilist ? "0 0 4px #4A90E2" : "none"
+                }}
+              />
+              <span>AniList</span>
+            </div>
+          </div>
+        )}
+
         <Button
           variant="ghost"
           size="icon"

@@ -92,7 +92,8 @@ def callback(code: str | None = None, state: str | None = None, error: str | Non
         access_token=access_token
     )
 
-    return RedirectResponse("http://localhost:5173/dashboard?anilist=connected")
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    return RedirectResponse(f"{FRONTEND_URL}/dashboard?anilist=connected")
 
 @router.get("/status")
 def status_endpoint(user_id: str = Depends(get_current_user_id)):

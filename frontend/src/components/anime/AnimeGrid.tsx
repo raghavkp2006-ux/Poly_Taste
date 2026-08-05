@@ -1,4 +1,5 @@
 import { motion } from "framer-motion"
+import { getHighResImageUrl } from "@/lib/utils"
 
 const ANIME_ACCENT = "#FF7A59"
 
@@ -47,14 +48,23 @@ function AnimeSignalCard({
   index: number
   onSelect: (anime: any) => void
 }) {
-  const imgSrc =
+  const imgSrc = getHighResImageUrl(
     anime.images?.jpg?.image_url ||
     anime.coverImage?.large ||
-    anime.cover_image
+    anime.cover_image ||
+    anime.imageUrl
+  )
 
-  const genres: string[] = anime.genres
-    ? anime.genres
-    : anime.genres_raw || []
+  let genres: string[] = []
+  if (Array.isArray(anime.genres)) {
+    genres = anime.genres
+  } else if (typeof anime.genres === "string") {
+    genres = [anime.genres]
+  } else if (Array.isArray(anime.genres_raw)) {
+    genres = anime.genres_raw
+  } else if (typeof anime.genres_raw === "string") {
+    genres = [anime.genres_raw]
+  }
 
   return (
     <motion.div

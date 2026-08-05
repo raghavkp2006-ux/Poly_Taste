@@ -86,6 +86,8 @@ if _use_local:
         access_token = Column(String, nullable=False)
         refresh_token = Column(String, nullable=True)
         expires_at = Column(Integer, nullable=False)
+        spotify_account_id = Column(String, nullable=True)
+        spotify_display_name = Column(String, nullable=True)
 
         def to_dict(self) -> Dict[str, Any]:
             return {
@@ -93,6 +95,8 @@ if _use_local:
                 "access_token": self.access_token,
                 "refresh_token": self.refresh_token,
                 "expires_at": self.expires_at,
+                "spotify_account_id": self.spotify_account_id,
+                "spotify_display_name": self.spotify_display_name,
             }
 
     class User(Base):  # type: ignore[valid-type]
@@ -293,6 +297,8 @@ if _use_local:
         access_token: str,
         refresh_token: Optional[str],
         expires_at: int,
+        spotify_account_id: Optional[str] = None,
+        spotify_display_name: Optional[str] = None,
     ) -> None:
         db = SessionLocal()
         try:
@@ -302,12 +308,18 @@ if _use_local:
                 if refresh_token:
                     user.refresh_token = refresh_token
                 user.expires_at = expires_at
+                if spotify_account_id:
+                    user.spotify_account_id = spotify_account_id
+                if spotify_display_name:
+                    user.spotify_display_name = spotify_display_name
             else:
                 user = SpotifyUser(
                     user_id=user_id,
                     access_token=access_token,
                     refresh_token=refresh_token,
                     expires_at=expires_at,
+                    spotify_account_id=spotify_account_id,
+                    spotify_display_name=spotify_display_name,
                 )
                 db.add(user)
             db.commit()
@@ -473,6 +485,8 @@ else:
         access_token: str,
         refresh_token: Optional[str],
         expires_at: int,
+        spotify_account_id: Optional[str] = None,
+        spotify_display_name: Optional[str] = None,
     ) -> None:
         dynamodb = get_dynamodb_resource()
         table = dynamodb.Table(DYNAMODB_TABLE_NAME)
@@ -483,6 +497,10 @@ else:
         }
         if refresh_token:
             item["refresh_token"] = refresh_token
+        if spotify_account_id:
+            item["spotify_account_id"] = spotify_account_id
+        if spotify_display_name:
+            item["spotify_display_name"] = spotify_display_name
         try:
             table.put_item(Item=item)
         except ClientError as e:
