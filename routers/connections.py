@@ -11,9 +11,7 @@ router = APIRouter(prefix="/connections", tags=["connections"])
 @router.get("/status")
 def connections_status(user_id: str = Depends(get_current_user_id)):
     spotify_user = get_user(user_id)
-    spotify_connected = bool(
-        spotify_user and int(time.time()) <= int(spotify_user.get("expires_at", 0))
-    )
+    spotify_connected = spotify_user is not None
 
     anilist_user = get_anilist_user(user_id)
     anilist_connected = anilist_user is not None
