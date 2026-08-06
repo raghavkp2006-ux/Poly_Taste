@@ -3,6 +3,8 @@ import { Button } from "@/components/ui"
 import { LogOut } from "lucide-react"
 import { useEffect } from "react"
 import { api } from "../../api"
+import { colors, domainColor, domainAlpha, fontFamily } from "../../tokens"
+import { ConnectionBadge } from "../interchange"
 
 interface TopBarProps {
   userName: string
@@ -26,10 +28,10 @@ export function TopBar({ userName, onLogout, connections }: TopBarProps) {
     <header
       className={cn(
         "flex items-center justify-between gap-4 px-4 md:px-6 py-3",
-        "border-b border-white/[0.06]",
-        "sticky top-0 z-30",
-        "glass-panel"
+        "border-b",
+        "sticky top-0 z-30"
       )}
+      style={{ backgroundColor: colors.paper, borderColor: "rgba(0,0,0,0.06)" }}
     >
       {/* Greeting section */}
       <div className="flex items-center gap-3 min-w-0">
@@ -37,26 +39,26 @@ export function TopBar({ userName, onLogout, connections }: TopBarProps) {
         <div
           className="relative h-9 w-9 shrink-0 rounded-full flex items-center justify-center"
           style={{
-            background: "linear-gradient(135deg, #7C6CF0 0%, #3ED6C4 100%)",
+            background: `linear-gradient(135deg, ${domainColor.music} 0%, #3ED6C4 100%)`,
             padding: "1.5px",
           }}
         >
           <div
-            className="h-full w-full rounded-full flex items-center justify-center text-sm font-display font-semibold text-foreground"
-            style={{ background: "#12181F" }}
+            className="h-full w-full rounded-full flex items-center justify-center text-sm font-semibold"
+            style={{ background: colors.paper, fontFamily: fontFamily.display, color: colors.ink }}
           >
             {initial}
           </div>
         </div>
 
         <div className="min-w-0">
-          <h1 className="text-sm font-sans font-medium truncate text-foreground leading-tight">
+          <h1 className="text-sm font-medium truncate leading-tight" style={{ fontFamily: fontFamily.body, color: colors.ink }}>
             Welcome back,{" "}
-            <span className="font-display font-semibold text-gradient-convergence">
+            <span className="font-semibold" style={{ fontFamily: fontFamily.display, color: domainColor.music }}>
               {displayName}
             </span>
           </h1>
-          <p className="text-xs text-muted-foreground hidden sm:block font-sans leading-tight mt-0.5">
+          <p className="text-xs hidden sm:block leading-tight mt-0.5" style={{ fontFamily: fontFamily.body, color: colors.interchange }}>
             Your signal is live.
           </p>
         </div>
@@ -72,20 +74,18 @@ export function TopBar({ userName, onLogout, connections }: TopBarProps) {
                 if (!connections.spotify) window.location.href = api.auth.loginUrl
               }}
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] tracking-wide uppercase font-sans border transition-all duration-200",
-                connections.spotify
-                  ? "border-[#7C6CF0]/25 bg-[#7C6CF0]/5 text-[#7C6CF0]"
-                  : "border-white/10 bg-transparent text-muted-foreground cursor-pointer hover:bg-white/5"
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] tracking-wide uppercase border transition-all duration-200",
+                !connections.spotify && "cursor-pointer hover:bg-black/5"
               )}
+              style={{
+                fontFamily: fontFamily.mono,
+                borderColor: connections.spotify ? domainAlpha("music", 0.3) : "rgba(0,0,0,0.1)",
+                backgroundColor: connections.spotify ? domainAlpha("music", 0.05) : "transparent",
+                color: connections.spotify ? domainColor.music : colors.interchange
+              }}
               title={connections.spotify ? "Spotify Connected" : "Connect Spotify"}
             >
-              <div
-                className="w-1 h-1 rounded-full shrink-0"
-                style={{
-                  backgroundColor: connections.spotify ? "#7C6CF0" : "rgba(255,255,255,0.3)",
-                  boxShadow: connections.spotify ? "0 0 4px #7C6CF0" : "none"
-                }}
-              />
+              <ConnectionBadge connected={connections.spotify} domain="music" size={12} />
               <span>Spotify</span>
             </div>
 
@@ -95,20 +95,18 @@ export function TopBar({ userName, onLogout, connections }: TopBarProps) {
                 if (!connections.anilist) window.location.href = api.anilist.loginUrl
               }}
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] tracking-wide uppercase font-sans border transition-all duration-200",
-                connections.anilist
-                  ? "border-[#4A90E2]/25 bg-[#4A90E2]/5 text-[#4A90E2]"
-                  : "border-white/10 bg-transparent text-muted-foreground cursor-pointer hover:bg-white/5"
+                "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] tracking-wide uppercase border transition-all duration-200",
+                !connections.anilist && "cursor-pointer hover:bg-black/5"
               )}
+              style={{
+                fontFamily: fontFamily.mono,
+                borderColor: connections.anilist ? domainAlpha("anime", 0.3) : "rgba(0,0,0,0.1)",
+                backgroundColor: connections.anilist ? domainAlpha("anime", 0.05) : "transparent",
+                color: connections.anilist ? domainColor.anime : colors.interchange
+              }}
               title={connections.anilist ? "AniList Connected" : "Connect AniList"}
             >
-              <div
-                className="w-1 h-1 rounded-full shrink-0"
-                style={{
-                  backgroundColor: connections.anilist ? "#4A90E2" : "rgba(255,255,255,0.3)",
-                  boxShadow: connections.anilist ? "0 0 4px #4A90E2" : "none"
-                }}
-              />
+              <ConnectionBadge connected={connections.anilist} domain="anime" size={12} />
               <span>AniList</span>
             </div>
           </div>
@@ -118,7 +116,8 @@ export function TopBar({ userName, onLogout, connections }: TopBarProps) {
           variant="ghost"
           size="icon"
           onClick={onLogout}
-          className="text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
+          className="hover:text-red-600 hover:bg-red-500/10 transition-colors"
+          style={{ color: colors.interchange }}
           aria-label="Logout"
         >
           <LogOut className="h-4 w-4" />
