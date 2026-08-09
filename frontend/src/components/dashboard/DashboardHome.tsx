@@ -14,6 +14,8 @@ import {
   mockActivity,
 } from "./mockData"
 import type { Recommendation, RecentItem, ActivityItem, Category, PageId } from "../../types"
+import { colors, fontFamily } from "../../tokens"
+import { Card } from "../interchange"
 
 // ── Hook: fetch with mock fallback ───────────────────────────────────
 
@@ -87,59 +89,52 @@ export function DashboardHome({ userName, onLogout, onNavigate, connections }: D
     : "You"
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen w-full overflow-x-hidden bg-[#FAFAFA] dark:bg-[#0A0A0B] transition-colors duration-150 ease-out text-[#18181B] dark:text-[#FAFAFA] font-sans">
       <TopBar userName={displayName} onLogout={onLogout} connections={connections} />
 
-      <main className="flex-1 p-4 md:p-6 lg:p-8 space-y-10 max-w-[1400px] mx-auto w-full pb-24 md:pb-8">
+      <main className="flex-1 p-4 md:p-6 lg:p-8 space-y-8 max-w-[1400px] mx-auto w-full pb-24 md:pb-8 min-w-0">
 
         {/* Hero strip */}
         <Hero
           title={
-            <>
+            <span className="font-semibold tracking-tight text-4xl text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out">
               One signal for every{" "}
-              <span className="text-gradient-convergence">
+              <span className="text-[#2563EB] dark:text-[#3B82F6]">
                 {displayName}
               </span>
               .
-            </>
+            </span>
           }
           subtitle="Discover your next obsession — personalized anime, culinary gems, and fresh tracks, all tuned to your taste."
           actions={[
             {
               label: "Explore Anime",
               href: "#",
-              accentColor: "#FF7A59",
+              accentColor: "#2563EB",
               onClick: (e) => { e.preventDefault(); onNavigate("anime") },
             },
             {
               label: "Find Food",
               href: "#",
-              accentColor: "#E3A857",
+              accentColor: "#2563EB",
               onClick: (e) => { e.preventDefault(); onNavigate("restaurants") },
             },
             {
               label: "Discover Music",
               href: "#",
-              accentColor: "#7C6CF0",
+              accentColor: "#2563EB",
               onClick: (e) => { e.preventDefault(); onNavigate("music") },
             },
           ]}
         />
 
         {/* Convergence Halo — the signature moment */}
-        <div
-          className="rounded-2xl overflow-hidden"
-          style={{
-            background: "rgba(18,24,31,0.50)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid rgba(255,255,255,0.05)",
-          }}
-        >
+        <Card className="rounded-xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] dark:shadow-none border border-[#E4E4E7] dark:border-[#27272A] transition-colors duration-150 ease-out">
           <ConvergenceHalo />
-        </div>
+        </Card>
 
         {/* Recommendation rows */}
-        <div className="space-y-10">
+        <div className="space-y-8">
           {categories.map(({ category, state, isConnected }) => (
             <RecommendationRow
               key={category}

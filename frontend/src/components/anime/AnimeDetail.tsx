@@ -4,15 +4,8 @@ import { getHighResImageUrl } from "@/lib/utils"
 import { Button, Skeleton } from "@/components/ui"
 import { AnimeGrid } from "./AnimeGrid"
 import { ArrowLeft, ExternalLink } from "lucide-react"
-
-const ANIME_ACCENT = "#FF7A59"
-
-const GLASS = {
-  background: "rgba(18,24,31,0.70)",
-  backdropFilter: "blur(10px)",
-  border: "1px solid rgba(255,255,255,0.06)",
-  borderRadius: "0.75rem",
-} as const
+import { domainColor, domainAlpha, colors, errorAlpha } from "../../tokens"
+import { Card, LineRail, StationBadge } from "../interchange"
 
 export function AnimeDetail({
   anime,
@@ -87,23 +80,21 @@ export function AnimeDetail({
         variant="ghost"
         onClick={onBack}
         className="mb-2 -ml-1"
-        style={{ color: ANIME_ACCENT }}
+        style={{ color: domainColor.anime }}
       >
         <ArrowLeft className="w-4 h-4 mr-2" />
         Back to Browse
       </Button>
 
       {/* Hero info */}
-      <div
-        className="flex flex-col md:flex-row gap-6 p-6"
-        style={GLASS}
-      >
+      <Card className="flex flex-col md:flex-row gap-6 p-6 relative overflow-hidden">
+        <LineRail domain="anime" />
         {imgSrc && (
           <img
             src={imgSrc}
             alt={anime.title}
             className="w-full md:w-52 rounded-xl object-cover shadow-lg"
-            style={{ boxShadow: `0 0 40px ${ANIME_ACCENT}30` }}
+            style={{ boxShadow: `0 0 40px ${domainAlpha("anime", 0.3)}` }}
           />
         )}
         <div className="flex-1 space-y-4">
@@ -119,9 +110,9 @@ export function AnimeDetail({
                   key={g}
                   className="text-xs font-mono px-3 py-0.5 rounded-full"
                   style={{
-                    color:            ANIME_ACCENT,
-                    backgroundColor:  `${ANIME_ACCENT}15`,
-                    border:           `1px solid ${ANIME_ACCENT}30`,
+                    color:            domainColor.anime,
+                    backgroundColor:  domainAlpha("anime", 0.15),
+                    border:           `1px solid ${domainAlpha("anime", 0.3)}`,
                   }}
                 >
                   {g}
@@ -130,19 +121,9 @@ export function AnimeDetail({
             </div>
           )}
 
-          {/* Score */}
           {anime.score && (
-            <div
-              className="inline-flex items-center gap-2 text-sm font-mono"
-              style={{ color: ANIME_ACCENT }}
-            >
-              <span
-                className="text-xl font-display font-bold"
-                style={{ textShadow: `0 0 12px ${ANIME_ACCENT}60` }}
-              >
-                {anime.score}
-              </span>
-              <span className="text-muted-foreground">/ 10</span>
+            <div className="inline-flex items-center gap-2">
+              <StationBadge value={anime.score} domain="anime" size={48} />
             </div>
           )}
 
@@ -151,10 +132,10 @@ export function AnimeDetail({
             {anime.synopsis || anime.description || "No synopsis available."}
           </p>
         </div>
-      </div>
+      </Card>
 
       {/* Videos */}
-      <Section title="Videos & Trailers" accent={ANIME_ACCENT}>
+      <Section title="Videos & Trailers" accent={domainColor.anime}>
         {loadingV ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3].map((i) => (
@@ -168,10 +149,9 @@ export function AnimeDetail({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {videos.map((v) => (
-              <div
+              <Card
                 key={v.id.videoId}
-                className="rounded-xl overflow-hidden flex flex-col"
-                style={GLASS}
+                className="overflow-hidden flex flex-col relative"
               >
                 <iframe
                   className="w-full aspect-video"
@@ -182,14 +162,14 @@ export function AnimeDetail({
                 <div className="p-3 text-xs font-sans text-muted-foreground line-clamp-2">
                   {v.snippet.title}
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}
       </Section>
 
       {/* Reviews */}
-      <Section title="Reviews" accent={ANIME_ACCENT}>
+      <Section title="Reviews" accent={domainColor.anime}>
         {loadingR ? (
           <div className="space-y-4">
             {[1, 2].map((i) => (
@@ -203,10 +183,9 @@ export function AnimeDetail({
         ) : (
           <div className="space-y-4">
             {reviews.slice(0, 5).map((r) => (
-              <div
+              <Card
                 key={r.id}
-                className="p-4 rounded-xl"
-                style={GLASS}
+                className="p-4 relative"
               >
                 <div className="flex items-center gap-2 mb-2">
                   <span className="font-sans font-semibold text-sm text-foreground">
@@ -214,7 +193,7 @@ export function AnimeDetail({
                   </span>
                   <span
                     className="text-xs font-mono"
-                    style={{ color: ANIME_ACCENT }}
+                    style={{ color: domainColor.anime }}
                   >
                     ★ {r.score}
                   </span>
@@ -223,14 +202,14 @@ export function AnimeDetail({
                   className="text-xs font-sans text-muted-foreground line-clamp-4"
                   dangerouslySetInnerHTML={{ __html: r.body || r.summary }}
                 />
-              </div>
+              </Card>
             ))}
           </div>
         )}
       </Section>
 
       {/* News */}
-      <Section title="Latest News" accent={ANIME_ACCENT}>
+      <Section title="Latest News" accent={domainColor.anime}>
         {loadingN ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
@@ -249,9 +228,9 @@ export function AnimeDetail({
                 href={n.link}
                 target="_blank"
                 rel="noreferrer"
-                className="block p-4 rounded-xl transition-all duration-200 hover:border-[#FF7A59]/40 group"
-                style={GLASS}
+                className="block group"
               >
+                <Card className="p-4 transition-all duration-200 group-hover:border-[#FF7A59]/40 relative">
                 <h4
                   className="font-sans font-medium text-sm line-clamp-2 mb-1.5 text-foreground group-hover:text-[#FF7A59] transition-colors"
                 >
@@ -261,6 +240,7 @@ export function AnimeDetail({
                   <span>{new Date(n.published).toLocaleDateString()}</span>
                   <ExternalLink className="w-3 h-3" />
                 </div>
+                </Card>
               </a>
             ))}
           </div>
@@ -268,7 +248,7 @@ export function AnimeDetail({
       </Section>
 
       {/* Similar Anime */}
-      <Section title="Similar Anime" accent={ANIME_ACCENT}>
+      <Section title="Similar Anime" accent={domainColor.anime}>
         {loadingP ? (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {[1, 2, 3, 4, 5].map((i) => (
@@ -308,11 +288,8 @@ function Section({
   return (
     <section className="space-y-4">
       <div className="flex items-center gap-3">
-        <div
-          className="w-1.5 h-1.5 rounded-full"
-          style={{ backgroundColor: accent, boxShadow: `0 0 6px ${accent}` }}
-        />
-        <h2 className="text-base font-display font-semibold tracking-wide text-foreground">
+        <LineRail domain="anime" />
+        <h2 className="text-base font-display font-semibold tracking-wide text-foreground pl-3">
           {title}
         </h2>
       </div>
@@ -324,10 +301,11 @@ function Section({
 function ErrorMsg() {
   return (
     <div
-      className="text-sm font-sans text-muted-foreground p-4 rounded-lg"
+      className="text-sm font-sans p-4 rounded-lg"
       style={{
-        background: "rgba(255,122,89,0.06)",
-        border: "1px solid rgba(255,122,89,0.15)",
+        background: errorAlpha(0.06),
+        border: `1px solid ${errorAlpha(0.15)}`,
+        color: colors.error,
       }}
     >
       Failed to load — please try again later.

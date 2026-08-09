@@ -10,107 +10,98 @@
    ═══════════════════════════════════════════════════════════════════ */
 @layer base {
   :root {
-    /* ── Graphite base ───────────────────────────────────────────── */
-    --background:         215 33% 6%;   /* #0A0E14 cool graphite-ink  */
-    --foreground:         218 17% 91%;  /* #E4E7EC primary text       */
-
-    /* ── Glass panels ────────────────────────────────────────────── */
-    --card:               213 26% 10%;  /* #12181F panel tint         */
-    --card-foreground:    218 17% 91%;
-    --popover:            213 26% 10%;
-    --popover-foreground: 218 17% 91%;
-
-    /* ── Primary = music indigo (electric #7C6CF0) ───────────────── */
-    --primary:            247 81% 68%;
-    --primary-foreground: 0 0% 100%;
-
-    /* ── Secondary = slightly lighter panel ─────────────────────── */
-    --secondary:          213 22% 14%;
-    --secondary-foreground: 218 17% 91%;
-
-    /* ── Muted ───────────────────────────────────────────────────── */
-    --muted:              213 22% 14%;
-    --muted-foreground:   211 10% 53%;  /* #7B8794                   */
-
-    /* ── Accent = food copper-gold #E3A857 ───────────────────────── */
-    --accent:             35 71% 62%;
-    --accent-foreground:  213 26% 8%;
-
-    /* ── Destructive ─────────────────────────────────────────────── */
-    --destructive:        4 70% 55%;
-    --destructive-foreground: 0 0% 100%;
-
-    /* ── Borders & inputs ────────────────────────────────────────── */
-    --border:             218 15% 18%;  /* subtle hairline            */
-    --input:              213 26% 10%;
-    --ring:               247 81% 68%;  /* indigo focus ring          */
+    --background:         0 0% 98%;   /* #FAFAFA */
+    --foreground:         240 10% 3.9%;  /* #18181B primary text */
+    --card:               0 0% 100%;  /* #FFFFFF */
+    --card-foreground:    240 10% 3.9%;
+    --popover:            0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary:            221.2 83.2% 53.3%; /* #2563EB */
+    --primary-foreground: 210 40% 98%;
+    --secondary:          240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted:              240 4.8% 95.9%;
+    --muted-foreground:   240 3.8% 46.1%; /* #71717A */
+    --accent:             221.2 83.2% 53.3%;
+    --accent-foreground:  0 0% 100%;
+    --destructive:        0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border:             240 5.9% 90%; /* #E4E4E7 */
+    --input:              240 5.9% 90%;
+    --ring:               221.2 83.2% 53.3%;
     --radius:             0.75rem;
+    --sidebar:            0 0% 98%;
+    --sidebar-foreground: 240 10% 3.9%;
+    --sidebar-accent:     221.2 83.2% 53.3%;
 
-    /* ── Sidebar rail ────────────────────────────────────────────── */
-    --sidebar:            213 30% 8%;
-    --sidebar-foreground: 218 17% 91%;
-    --sidebar-accent:     247 81% 68%;  /* music indigo               */
+    --color-music:        221.2 83.2% 53.3%;
+    --color-anime:        221.2 83.2% 53.3%;
+    --color-food:         221.2 83.2% 53.3%;
+    --color-convergence:  221.2 83.2% 53.3%;
 
-    /* ── Domain accents (HSL, no hsl() wrapper — used by Tailwind) ─ */
-    --color-music:        247 81% 68%;  /* #7C6CF0 electric indigo    */
-    --color-anime:        12 100% 68%;  /* #FF7A59 warm flame-coral   */
-    --color-food:         35 71% 62%;   /* #E3A857 copper-gold        */
-    --color-convergence:  247 81% 68%;  /* starts indigo → #3ED6C4    */
+    --music-hex:  #2563EB;
+    --anime-hex:  #2563EB;
+    --food-hex:   #2563EB;
 
-    /* ── Domain accent raw hex (for inline styles & JS) ─────────── */
-    --music-hex:  #7C6CF0;
-    --anime-hex:  #FF7A59;
-    --food-hex:   #E3A857;
+    --chart-1: oklch(0.646 0.222 41.116);
+    --chart-2: oklch(0.6 0.118 184.704);
+    --chart-3: oklch(0.398 0.07 227.392);
+    --chart-4: oklch(0.828 0.189 84.429);
+    --chart-5: oklch(0.769 0.188 70.08);
   }
 
-  /* Dark is always-on for this app (TopBar forces .dark) */
+  /* ── Dark mode tokens ─────────────────────────────────────────── */
   .dark {
-    --background:         215 33% 6%;
-    --foreground:         218 17% 91%;
-    --card:               213 26% 10%;
-    --card-foreground:    218 17% 91%;
-    --popover:            213 26% 10%;
-    --popover-foreground: 218 17% 91%;
-    --primary:            247 81% 68%;
-    --primary-foreground: 0 0% 100%;
-    --secondary:          213 22% 14%;
-    --secondary-foreground: 218 17% 91%;
-    --muted:              213 22% 14%;
-    --muted-foreground:   211 10% 53%;
-    --accent:             35 71% 62%;
-    --accent-foreground:  213 26% 8%;
-    --destructive:        4 70% 55%;
-    --destructive-foreground: 0 0% 100%;
-    --border:             218 15% 18%;
-    --input:              213 26% 10%;
-    --ring:               247 81% 68%;
-    --sidebar:            213 30% 8%;
-    --sidebar-foreground: 218 17% 91%;
-    --sidebar-accent:     247 81% 68%;
-    --color-music:        247 81% 68%;
-    --color-anime:        12 100% 68%;
-    --color-food:         35 71% 62%;
-    --color-convergence:  247 81% 68%;
+    --background:         240 10% 3.9%;  /* #0A0A0B */
+    --foreground:         0 0% 98%;      /* #FAFAFA */
+    --card:               240 5.9% 10%;  /* #18181B */
+    --card-foreground:    0 0% 98%;
+    --popover:            240 5.9% 10%;
+    --popover-foreground: 0 0% 98%;
+    --primary:            217.2 91.2% 59.8%; /* #3B82F6 */
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary:          240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted:              240 3.7% 15.9%;
+    --muted-foreground:   240 5% 64.9%; /* #A1A1AA */
+    --accent:             217.2 91.2% 59.8%;
+    --accent-foreground:  0 0% 98%;
+    --destructive:        0 72.2% 50.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border:             240 3.7% 15.9%; /* #27272A */
+    --input:              240 3.7% 15.9%;
+    --ring:               217.2 91.2% 59.8%;
+    --sidebar:            240 5.9% 10%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-accent:     217.2 91.2% 59.8%;
+
+    --chart-1: oklch(0.488 0.243 264.376);
+    --chart-2: oklch(0.696 0.17 162.48);
+    --chart-3: oklch(0.769 0.188 70.08);
+    --chart-4: oklch(0.627 0.265 303.9);
+    --chart-5: oklch(0.645 0.246 16.439);
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   BASE RESETS
-   ═══════════════════════════════════════════════════════════════════ */
 @layer base {
   * {
     @apply border-border;
   }
-
   html {
+    color-scheme: light;
+    overflow-x: hidden;
+  }
+  html.dark {
     color-scheme: dark;
   }
-
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    /* Ensure the ambient background always shows */
-    background-color: #0A0E14;
+    background-color: #FAFAFA;
+    overflow-x: hidden;
+  }
+  html.dark body {
+    background-color: #0A0A0B;
   }
 }
 
@@ -248,6 +239,25 @@
     );
     background-size: 200% 100%;
     animation: gradient 1.5s linear infinite;
+  }
+
+  /* ── Skeleton shimmer (light-tinted) ──────────────────────────────── */
+
+  .skeleton-light {
+    background: linear-gradient(
+      110deg,
+      rgba(228, 228, 231, 0.6) 8%,
+      rgba(245, 245, 245, 0.9) 18%,
+      rgba(228, 228, 231, 0.6) 33%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s linear infinite;
+  }
+
+  /* ── Skeleton shimmer (auto — light/dark via dark: class) ─────────── */
+
+  @keyframes skeleton-shimmer {
+    to { background-position: -200% 0; }
   }
 
   /* ── Focus ring override for keyboard nav ────────────────────────── */

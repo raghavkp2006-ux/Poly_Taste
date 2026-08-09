@@ -11,9 +11,10 @@ import { OnboardingWizard } from "./components/onboarding/OnboardingWizard"
 import { cn } from "@/lib/utils"
 import { Button, Input, Switch } from "./components/ui"
 import { Search, Loader2 } from "lucide-react"
-import type { PageId } from "./types"
-
-import { GLASS_PANEL, colors } from "./tokens"
+import { colors, domainColor, domainAlpha } from "./tokens"
+import { Card, LineRail } from "./components/interchange"
+import { ThemeProvider } from "./components/ui/ThemeProvider"
+import { ThemeToggleButton } from "./components/ui/ThemeToggleButton"
 
 // ── Domain accent constants ──────────────────────────────────────────
 const FOOD_ACCENT  = colors.food
@@ -158,15 +159,17 @@ export default function App() {
   }
 
   return (
-    <>
-      <AmbientBackground />
-      <DashboardLayout
-        userId={user.user_id}
-        onLogout={() => {
-          api.auth.logout().then(() => setUser(null))
-        }}
-      />
-    </>
+    <ThemeProvider>
+      <>
+        <AmbientBackground />
+        <DashboardLayout
+          userId={user.user_id}
+          onLogout={() => {
+            api.auth.logout().then(() => setUser(null))
+          }}
+        />
+      </>
+    </ThemeProvider>
   )
 }
 
@@ -211,7 +214,7 @@ function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-transparent">
+    <div className="flex min-h-screen w-full overflow-x-hidden bg-transparent">
       <Sidebar
         currentPage={currentPage}
         onNavigate={handleNavigate}
@@ -223,7 +226,7 @@ function DashboardLayout({
 
       <div
         className={cn(
-          "flex-1 transition-all duration-300",
+          "flex-1 min-w-0 transition-all duration-300",
           collapsed ? "md:ml-[72px]" : "md:ml-[240px]"
         )}
       >
@@ -236,7 +239,7 @@ function DashboardLayout({
           />
         )}
         {currentPage === "anime" && (
-          <PageWrapper>
+          <PageWrapper title="Anime">
             <AnimeModule
               externalSelectedAnime={selectedAnime}
               onExternalSelectAnime={setSelectedAnime}
@@ -244,22 +247,22 @@ function DashboardLayout({
           </PageWrapper>
         )}
         {currentPage === "restaurants" && (
-          <PageWrapper>
+          <PageWrapper title="Restaurants">
             <RestaurantModule />
           </PageWrapper>
         )}
         {currentPage === "music" && (
-          <PageWrapper>
+          <PageWrapper title="Music">
             <MusicSection />
           </PageWrapper>
         )}
         {currentPage === "profile" && (
-          <PageWrapper>
+          <PageWrapper title="Taste Profile">
             <TasteProfileModule />
           </PageWrapper>
         )}
         {currentPage === "settings" && (
-          <PageWrapper>
+          <PageWrapper title="Settings">
             <SettingsSection />
           </PageWrapper>
         )}
@@ -270,9 +273,16 @@ function DashboardLayout({
 
 // ── Page wrapper ─────────────────────────────────────────────────────
 
-function PageWrapper({ children }: { children: React.ReactNode }) {
+function PageWrapper({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-[#FAFAFA] dark:bg-[#0A0A0B] transition-colors duration-150 ease-out">
+      {/* Sticky page top bar with theme toggle */}
+      <div className="sticky top-0 z-30 flex items-center justify-between gap-4 px-4 md:px-6 py-3 bg-[#FFFFFF] dark:bg-[#18181B] border-b border-[#E4E4E7] dark:border-[#27272A] transition-colors duration-150 ease-out">
+        <h1 className="text-sm font-semibold text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out">
+          {title ?? ""}
+        </h1>
+        <ThemeToggleButton />
+      </div>
       <div className="flex-1 p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
         {children}
       </div>
@@ -286,13 +296,13 @@ function SettingsSection() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <h2 className="text-2xl font-display font-bold text-foreground">Preferences</h2>
-      <div style={GLASS_PANEL}>
+      <Card className="relative overflow-hidden">
         <div className="p-6">
           <p className="text-sm font-sans text-muted-foreground">
             More settings coming soon. Your taste signals are already being tuned automatically.
           </p>
         </div>
-      </div>
+      </Card>
     </div>
   )
 }
@@ -405,7 +415,7 @@ function AnimeModule({
   return (
     <div className="space-y-8">
       {/* Search bar */}
-      <div className="p-4 rounded-xl" style={GLASS_PANEL}>
+      <Card className="p-4 rounded-xl relative overflow-hidden">
         <form onSubmit={handleSearch} className="flex gap-2 w-full max-w-lg">
           <Input
             placeholder="Search anime by title…"
@@ -418,7 +428,7 @@ function AnimeModule({
             Search
           </Button>
         </form>
-      </div>
+      </Card>
 
       {loading ? (
         <div className="flex justify-center p-12">
@@ -518,7 +528,7 @@ function RestaurantModule() {
   return (
     <div className="space-y-6">
       {/* Search panel */}
-      <div className="rounded-xl p-4 space-y-4" style={GLASS_PANEL}>
+      <Card className="rounded-xl p-4 space-y-4 relative overflow-hidden">
         {/* Location banner */}
         {locationStatus === "prompting" && (
           <div className="flex items-center gap-2 text-xs font-mono" style={{ color: FOOD_ACCENT }}>
@@ -573,7 +583,7 @@ function RestaurantModule() {
             <Switch checked={personalize} onCheckedChange={setPersonalize} />
           </div>
         </div>
-      </div>
+      </Card>
 
       {loading && (
         <div className="flex justify-center p-8">
@@ -586,16 +596,11 @@ function RestaurantModule() {
         {Array.isArray(results) && results.map((r) => {
           const id = r.place_id || r.id
           return (
-            <div
+            <Card
               key={id}
-              className="rounded-xl overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.01] group glow-edge-food"
-              style={GLASS_PANEL}
+              className="rounded-xl overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.01] group relative"
             >
-              {/* Accent bar */}
-              <div
-                className="h-0.5 w-full"
-                style={{ background: `linear-gradient(90deg, ${FOOD_ACCENT} 0%, transparent 80%)` }}
-              />
+              <LineRail domain="food" />
               <div className="p-4 space-y-2">
                 <h3 className="text-sm font-sans font-semibold leading-snug line-clamp-2 text-foreground">
                   {r.name}
@@ -624,7 +629,7 @@ function RestaurantModule() {
                   Similar
                 </button>
               </div>
-            </div>
+            </Card>
           )
         })}
       </div>
@@ -671,10 +676,22 @@ export function TasteProfileModule() {
     });
   });
   
-  const overlapping = Object.values(allGenres).filter(c => c > 1).length;
+  const overlapping = Object.values(allGenres).filter(c => (c as number) > 1).length;
   const total = Object.keys(allGenres).length;
   const bonus = total > 0 ? Math.round((overlapping / total) * 20) : 0;
   const convergenceScore = Math.min(100, baseScore + bonus);
+
+  // Generate real data for the Ring Chart
+  const musicCount = Object.keys(profile.breakdown?.['spotify'] || {}).length;
+  const animeCount = Object.keys(profile.breakdown?.['anime'] || {}).length;
+  const foodCount = Object.keys(profile.breakdown?.['restaurants'] || {}).length;
+  const maxCount = Math.max(10, musicCount, animeCount, foodCount); // Ensure ring isn't completely full if small
+
+  const ringData = [
+    { label: "Music", value: musicCount, maxValue: maxCount },
+    { label: "Anime", value: animeCount, maxValue: maxCount },
+    { label: "Food", value: foodCount, maxValue: maxCount },
+  ];
 
   // Convert profile object to sorted array for display
   const topGenres = Object.entries(profile.profile || {})
@@ -685,7 +702,7 @@ export function TasteProfileModule() {
     <div className="max-w-4xl mx-auto space-y-8">
       {/* Header & Halo */}
       <div className="flex flex-col items-center justify-center py-8">
-        <ConvergenceHalo score={convergenceScore} />
+        <ConvergenceHalo score={convergenceScore} data={ringData} />
         <div className="text-center mt-6 space-y-2">
           <h2 className="text-2xl font-display font-bold text-foreground">
             Your Taste Profile
@@ -713,7 +730,7 @@ export function TasteProfileModule() {
         </ProfileCard>
 
         <div className="space-y-6">
-          <div style={GLASS_PANEL}>
+          <Card className="relative overflow-hidden">
             <div className="px-5 py-4 border-b border-white/[0.06]">
               <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-foreground">
                 Domain Activity
@@ -724,14 +741,11 @@ export function TasteProfileModule() {
               <StatBlock label="AniList Genres"   value={Object.keys(profile.breakdown?.anilist || {}).length}     color="#4A90E2" />
               <StatBlock label="Foods Liked"      value={Object.keys(profile.breakdown?.restaurants || {}).length}  color="#E3A857" />
             </div>
-          </div>
+          </Card>
           
-          <div style={GLASS_PANEL} className="p-5">
-             <div className="flex items-center gap-3">
-               <div
-                 className="w-2 h-2 rounded-full"
-                 style={{ backgroundColor: "#7C6CF0", boxShadow: "0 0 6px #7C6CF0" }}
-               />
+          <Card className="p-5 relative overflow-hidden">
+             <LineRail domain="music" />
+             <div className="flex items-center gap-3 pl-3">
                <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-foreground">
                  Spotify Connection
                </h3>
@@ -750,14 +764,11 @@ export function TasteProfileModule() {
                  Connect Spotify
                </Button>
              )}
-          </div>
+          </Card>
 
-          <div style={GLASS_PANEL} className="p-5">
-             <div className="flex items-center gap-3">
-               <div
-                 className="w-2 h-2 rounded-full"
-                 style={{ backgroundColor: "#4A90E2", boxShadow: "0 0 6px #4A90E2" }}
-               />
+          <Card className="p-5 relative overflow-hidden">
+             <LineRail domain="anime" />
+             <div className="flex items-center gap-3 pl-3">
                <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-foreground">
                  AniList Connection
                </h3>
@@ -776,17 +787,14 @@ export function TasteProfileModule() {
                  Connect AniList
                </Button>
              )}
-          </div>
+          </Card>
         </div>
       </div>
 
       {profile.anilist_watched && profile.anilist_watched.length > 0 && (
-        <div style={GLASS_PANEL} className="p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div
-              className="w-2 h-2 rounded-full"
-              style={{ backgroundColor: "#4A90E2", boxShadow: "0 0 6px #4A90E2" }}
-            />
+        <Card className="p-5 relative overflow-hidden">
+          <LineRail domain="anime" />
+          <div className="flex items-center gap-3 mb-4 pl-3">
             <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-foreground">
               Watched on AniList
             </h3>
@@ -809,7 +817,7 @@ export function TasteProfileModule() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   )
@@ -820,11 +828,8 @@ export function TasteProfileModule() {
 function SectionHeader({ title, color }: { title: string; color: string }) {
   return (
     <div className="flex items-center gap-3 mb-4">
-      <div
-        className="w-2 h-2 rounded-full"
-        style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}` }}
-      />
-      <h2 className="text-base font-display font-semibold tracking-wide uppercase text-foreground">
+      <LineRail domain="anime" />
+      <h2 className="text-base font-display font-semibold tracking-wide uppercase text-foreground pl-3">
         {title}
       </h2>
     </div>
@@ -839,16 +844,16 @@ function ProfileCard({
   children: React.ReactNode
 }) {
   return (
-    <div className="overflow-hidden" style={GLASS_PANEL}>
-      <div className="px-5 py-4 border-b border-white/[0.06]">
+    <Card className="overflow-hidden relative">
+      <div className="px-5 py-4 border-b border-white/[0.06] pl-6">
         <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-foreground">
           {title}
         </h3>
       </div>
-      <div className="p-5">
+      <div className="p-5 pl-6">
         <ul className="space-y-2">{children}</ul>
       </div>
-    </div>
+    </Card>
   )
 }
 

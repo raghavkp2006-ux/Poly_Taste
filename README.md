@@ -8,12 +8,14 @@ A FastAPI application deployed to AWS Lambda via Mangum/SAM, providing content-b
 
 ### Auth / Session
 
-The app uses a signed cookie session for authentication, established via Spotify OAuth.
+The app uses a signed cookie session for authentication, established via Google Sign-In (keyed on `google_sub`). Spotify and AniList are optional secondary connections linked to this primary Google session to pull listening/watch data into the taste profile. They do not create or overwrite the session on their own.
 
 #### Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
+| GET | `/auth/google/login` | Sign in with Google (starts the app-wide login flow) |
+| GET | `/auth/google/callback` | OAuth callback — verifies identity, sets session cookie |
 | GET | `/auth/me` | Returns current `user_id` if logged in (401 otherwise) |
 | POST | `/auth/logout` | Clears the session cookie |
 
@@ -21,14 +23,14 @@ The app uses a signed cookie session for authentication, established via Spotify
 
 ### Spotify
 
-Genre-profile content-based recommendations. Authenticates users via OAuth (which also powers the whole app's session) and builds a weighted genre fingerprint from their top artists.
+Genre-profile content-based recommendations. Users can optionally connect their Spotify account to their Google session via OAuth to build a weighted genre fingerprint from their top artists.
 
 #### Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/spotify/login` | Sign in with Spotify (starts the app-wide login flow) |
-| GET | `/spotify/callback` | OAuth callback — stores token, sets session cookie |
+| GET | `/spotify/login` | Connect Spotify account (links to existing Google session) |
+| GET | `/spotify/callback` | OAuth callback — stores Spotify token for the current user |
 | GET | `/spotify/top-tracks` | User's top 10 tracks |
 | GET | `/spotify/recommendations` | Genre-profile track recommendations |
 | GET | `/spotify/recommend/{track_id}` | **[Deprecated]** DNN similarity via `/audio-features` (unavailable for new apps since Nov 2024) |
@@ -99,9 +101,12 @@ Edit `.env` and fill in:
 
 | Variable | Required for | Where to get it |
 |----------|-------------|-----------------|
+| `GOOGLE_CLIENT_ID` | Google Sign-In | [console.cloud.google.com](https://console.cloud.google.com/) |
+| `GOOGLE_CLIENT_SECRET` | Google Sign-In | Same app settings page |
+| `GOOGLE_REDIRECT_URI` | Google Sign-In | Set to `http://127.0.0.1:8000/auth/google/callback` exactly. |
 | `SPOTIFY_CLIENT_ID` | Spotify endpoints | [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) |
 | `SPOTIFY_CLIENT_SECRET` | Spotify endpoints | Same app settings page |
-| `SPOTIFY_REDIRECT_URI` | Spotify OAuth | Set to `http://127.0.0.1:8000/spotify/callback` exactly. **Note:** Access the app via http://127.0.0.1:8000, not localhost. Spotify treats localhost and 127.0.0.1 as different hosts and will reject localhost. |
+| `SPOTIFY_REDIRECT_URI` | Spotify OAuth | Set to `http://127.0.0.1:8000/spotify/callback` exactly. **Note:** Access the app via http://127.0.0.1:8000, not localhost. |
 | `SESSION_SECRET_KEY` | App authentication | Set to a random secure string in production |
 | `YOUTUBE_API_KEY` | `/anime/{id}/videos` | [console.cloud.google.com](https://console.cloud.google.com/apis/library/youtube.googleapis.com) — enable YouTube Data API v3 |
 | `GOOGLE_PLACES_API_KEY` | `/restaurants/*` | [console.cloud.google.com](https://console.cloud.google.com/apis/library/places-backend.googleapis.com) — enable Places API |
@@ -126,7 +131,10 @@ python main.py
 uvicorn main:app --reload
 ```
 
-Visit [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) for interactive Swagger UI.
+To test the application flow:
+1. Start the app and visit [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) for the interactive Swagger UI, or launch the frontend.
+2. Sign in with Google first (via `/auth/google/login`).
+3. Once a session is established, you can optionally connect Spotify or AniList to pull in your taste data.
 
 ---
 

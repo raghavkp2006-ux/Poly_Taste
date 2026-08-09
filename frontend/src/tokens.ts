@@ -24,6 +24,8 @@ export const colors = {
   food:        "#D6A34C",
   /** UI chrome / interchange violet */
   interchange: "#8B87A8",
+  /** Error / Destructive state */
+  error:       "#E04336",
 } as const
 
 /** Convenience type for the three content domains */
@@ -54,6 +56,9 @@ export const domainAlpha = (domain: Domain, a: number): string => {
   const [r, g, b] = map[domain]
   return `rgba(${r},${g},${b},${a})`
 }
+
+/** Error at an alpha level */
+export const errorAlpha = (a: number) => `rgba(224,67,54,${a})`
 
 // ── Typography ──────────────────────────────────────────────────────
 

@@ -26,12 +26,12 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { id: "home",        label: "Home",        icon: Home,            color: colors.interchange },
+  { id: "home",        label: "Home",        icon: Home,            color: "#A1A1AA" },
   { id: "anime",       label: "Anime",        icon: Tv,              color: domainColor.anime },
   { id: "restaurants", label: "Food",         icon: UtensilsCrossed, color: domainColor.food },
   { id: "music",       label: "Music",        icon: Music,           color: domainColor.music },
   { id: "profile",     label: "Profile",      icon: Fingerprint,     color: "#3ED6C4" },
-  { id: "settings",    label: "Settings",     icon: Settings,        color: colors.interchange },
+  { id: "settings",    label: "Settings",     icon: Settings,        color: "#A1A1AA" },
 ]
 
 interface SidebarProps {
@@ -47,7 +47,9 @@ function ConnectionItem({
   label,
   connected,
   color,
+  domain,
   onClick
+}: {
   label: string
   connected: boolean
   color: string
@@ -59,19 +61,28 @@ function ConnectionItem({
       onClick={onClick}
       className={cn(
         "flex items-center justify-between p-1.5 rounded-lg text-xs transition-all duration-200",
-        !connected && "cursor-pointer hover:bg-black/5"
+        !connected && "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
       )}
       style={{ fontFamily: fontFamily.body }}
     >
       <div className="flex items-center gap-2">
         <ConnectionBadge connected={connected} domain={domain} size={14} />
-        <span style={{ color: connected ? colors.ink : colors.interchange, fontWeight: connected ? 500 : 400 }}>
+        <span
+          className={cn(
+            connected ? "text-[#18181B] dark:text-[#FAFAFA]" : "text-[#A1A1AA] dark:text-[#71717A]",
+            connected ? "font-medium" : "font-normal",
+            "transition-colors duration-150 ease-out"
+          )}
+        >
           {label}
         </span>
       </div>
       <span
-        className="text-[9px] uppercase tracking-wider"
-        style={{ fontFamily: fontFamily.mono, color: connected ? color : colors.interchange }}
+        className={cn(
+          "text-[9px] uppercase tracking-wider transition-colors duration-150 ease-out",
+          connected ? "text-[#2563EB] dark:text-[#3B82F6]" : "text-[#A1A1AA] dark:text-[#71717A]"
+        )}
+        style={{ fontFamily: fontFamily.mono }}
       >
         {connected ? "Connected" : "Connect"}
       </span>
@@ -95,14 +106,12 @@ export function Sidebar({
         animate={{ width: collapsed ? 72 : 240 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         className={cn(
-          "hidden md:flex flex-col fixed left-0 top-0 h-screen z-40",
-          "border-r",
+          "hidden md:flex flex-col fixed left-0 top-0 h-screen z-40 bg-[#FFFFFF] dark:bg-[#18181B] transition-colors duration-150 ease-out border-r border-[#E4E4E7] dark:border-[#27272A] transition-colors duration-150 ease-out",
           "overflow-hidden"
         )}
-        style={{ backgroundColor: colors.paper, borderColor: "rgba(0,0,0,0.06)" }}
       >
         {/* Logo area */}
-        <div className="flex items-center h-16 px-4 border-b shrink-0" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
+        <div className="flex items-center h-16 px-4 border-b border-[#E4E4E7] dark:border-[#27272A] transition-colors duration-150 ease-out shrink-0">
           <AnimatePresence mode="wait">
             {!collapsed && (
               <motion.div
@@ -114,8 +123,8 @@ export function Sidebar({
               >
                 <LogoMark size={28} />
                 <span
-                  className="text-base font-semibold tracking-tight truncate"
-                  style={{ fontFamily: fontFamily.display, color: colors.ink }}
+                  className="text-base font-semibold tracking-tight truncate text-[#18181B] dark:text-[#FAFAFA]"
+                  style={{ fontFamily: fontFamily.display }}
                 >
                   Poly_Taste
                 </span>
@@ -149,22 +158,28 @@ export function Sidebar({
                 aria-label={item.label}
               >
                 <Icon
-                  className="h-5 w-5 shrink-0 transition-colors"
-                  style={{ color: isActive ? item.color : colors.interchange }}
+                  className={cn(
+                    "h-5 w-5 shrink-0 transition-colors",
+                    isActive ? "text-[#2563EB] dark:text-[#3B82F6]" : "text-[#A1A1AA] dark:text-[#A1A1AA]"
+                  )}
                 />
                 {isActive && (
                   <motion.div
                     layoutId="sidebar-active-collapsed"
-                    className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full"
-                    style={{ backgroundColor: item.color }}
+                    className={cn(
+                      "absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full",
+                      isActive ? "bg-[#2563EB] dark:bg-[#3B82F6]" : "bg-[#A1A1AA] dark:bg-[#A1A1AA]"
+                    )}
                     transition={{ type: "spring", stiffness: 350, damping: 30 }}
                   />
                 )}
                 {isActive && (
                   /* Glow halo behind icon */
                   <div
-                    className="absolute inset-0 rounded-lg opacity-10"
-                    style={{ backgroundColor: item.color }}
+                    className={cn(
+                      "absolute inset-0 rounded-lg opacity-10",
+                      isActive ? "bg-[#2563EB] dark:bg-[#3B82F6]" : "bg-[#A1A1AA] dark:bg-[#A1A1AA]"
+                    )}
                   />
                 )}
               </button>
@@ -176,16 +191,16 @@ export function Sidebar({
                   "relative flex items-center w-full rounded-lg px-3 py-2.5",
                   "text-sm transition-all duration-200",
                   "hover:bg-black/5",
-                  isActive ? "bg-black/5 font-medium" : "font-normal"
+                  isActive ? "bg-black/5 dark:bg-white/5 font-medium text-[#2563EB] dark:text-[#3B82F6]" : "font-normal text-[#A1A1AA] dark:text-[#A1A1AA]"
                 )}
-                style={{ fontFamily: fontFamily.body, color: isActive ? item.color : colors.interchange }}
+                style={{ fontFamily: fontFamily.body }}
               >
                 {/* Active left glow bar */}
                 {isActive && (
                   <motion.div
                     layoutId="sidebar-active"
                     className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full"
-                    style={{ backgroundColor: item.color, boxShadow: `0 0 8px ${item.color}80` }}
+                    style={{ backgroundColor: isActive ? "#2563EB" : "#A1A1AA", boxShadow: `0 0 8px ${isActive ? "#2563EB" : "#A1A1AA"}80` }}
                     transition={{ type: "spring", stiffness: 350, damping: 30 }}
                   />
                 )}
@@ -193,13 +208,15 @@ export function Sidebar({
                 {isActive && (
                   <div
                     className="absolute inset-0 rounded-lg opacity-5"
-                    style={{ backgroundColor: item.color }}
+                    style={{ backgroundColor: isActive ? "#2563EB" : "#A1A1AA" }}
                   />
                 )}
 
                 <Icon
-                  className="h-5 w-5 shrink-0 relative z-10"
-                  style={{ color: isActive ? item.color : colors.interchange }}
+                  className={cn(
+                    "h-5 w-5 shrink-0 relative z-10",
+                    isActive ? "text-[#2563EB] dark:text-[#3B82F6]" : "text-[#A1A1AA] dark:text-[#A1A1AA]"
+                  )}
                 />
                 <AnimatePresence mode="wait">
                   {!collapsed && (
@@ -208,8 +225,7 @@ export function Sidebar({
                       initial={{ opacity: 0, width: 0 }}
                       animate={{ opacity: 1, width: "auto" }}
                       exit={{ opacity: 0, width: 0 }}
-                      className="ml-3 truncate relative z-10"
-                      style={{ color: isActive ? colors.ink : colors.interchange }}
+                      className={cn("ml-3 truncate relative z-10", isActive ? "text-[#18181B] dark:text-[#FAFAFA]" : "text-[#A1A1AA] dark:text-[#A1A1AA]")}
                     >
                       {item.label}
                     </motion.span>
@@ -223,10 +239,10 @@ export function Sidebar({
         {/* Connection status indicators */}
         {connections && (
           !collapsed ? (
-            <div className="px-4 py-3 border-t space-y-2 shrink-0" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
+            <div className="px-4 py-3 border-t border-[#E4E4E7] dark:border-[#27272A] transition-colors duration-150 ease-out space-y-2 shrink-0">
               <div 
-                className="text-[10px] font-semibold uppercase tracking-wider"
-                style={{ fontFamily: fontFamily.display, color: colors.interchange }}
+                className="text-[10px] font-semibold uppercase tracking-wider text-[#A1A1AA] dark:text-[#A1A1AA]"
+                style={{ fontFamily: fontFamily.display }}
               >
                 Connections
               </div>
@@ -234,7 +250,7 @@ export function Sidebar({
                 <ConnectionItem
                   label="Spotify"
                   connected={connections.spotify}
-                  color={domainColor.music}
+                  color="#18181B"
                   domain="music"
                   onClick={() => {
                     if (!connections.spotify) window.location.href = api.auth.loginUrl
@@ -243,7 +259,7 @@ export function Sidebar({
                 <ConnectionItem
                   label="AniList"
                   connected={connections.anilist}
-                  color={domainColor.anime}
+                  color="#18181B"
                   domain="anime"
                   onClick={() => {
                     if (!connections.anilist) window.location.href = api.anilist.loginUrl
@@ -252,7 +268,7 @@ export function Sidebar({
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-3 py-3 border-t shrink-0" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
+            <div className="flex flex-col items-center gap-3 py-3 border-t border-[#E4E4E7] dark:border-[#27272A] transition-colors duration-150 ease-out shrink-0">
               <div
                 className="cursor-pointer"
                 onClick={() => {
@@ -276,17 +292,16 @@ export function Sidebar({
         )}
 
         {/* Bottom controls */}
-        <div className="p-3 border-t space-y-1 shrink-0" style={{ borderColor: "rgba(0,0,0,0.06)" }}>
+        <div className="p-3 border-t border-[#E4E4E7] dark:border-[#27272A] transition-colors duration-150 ease-out space-y-1 shrink-0">
           {/* Collapse toggle */}
           <button
             onClick={onToggleCollapse}
             className={cn(
-              "flex items-center w-full rounded-lg p-2",
-              "hover:bg-black/5 transition-all duration-200",
+              "flex items-center w-full rounded-lg p-2 text-[#A1A1AA] dark:text-[#A1A1AA]",
+              "hover:bg-black/5 dark:hover:bg-white/5 transition-all duration-200",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               collapsed ? "justify-center" : ""
             )}
-            style={{ color: colors.interchange }}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {collapsed ? (
@@ -304,13 +319,12 @@ export function Sidebar({
             <button
               onClick={onLogout}
               className={cn(
-                "flex items-center w-full rounded-lg p-2",
-                "hover:bg-red-500/10 hover:text-red-600",
+                "flex items-center w-full rounded-lg p-2 text-[#A1A1AA] dark:text-[#A1A1AA]",
+                "hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-500",
                 "transition-all duration-200",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 collapsed ? "justify-center" : ""
               )}
-              style={{ color: colors.interchange }}
               aria-label="Logout"
             >
               {collapsed ? (
@@ -326,14 +340,12 @@ export function Sidebar({
         </div>
       </motion.aside>
 
-      {/* ── Mobile bottom nav ─────────────────────────────────────── */}
       <nav
         className={cn(
           "md:hidden fixed bottom-0 left-0 right-0 z-40",
           "flex items-center justify-around h-16",
-          "border-t"
+          "border-t border-[#E4E4E7] dark:border-[#27272A] transition-colors duration-150 ease-out"
         )}
-        style={{ backgroundColor: colors.paper, borderColor: "rgba(0,0,0,0.06)" }}
       >
         {navItems.map((item) => {
           const isActive = currentPage === item.id
@@ -345,20 +357,20 @@ export function Sidebar({
               className={cn(
                 "relative flex flex-col items-center gap-0.5 py-2 px-3 rounded-lg",
                 "transition-all duration-200",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                isActive ? "text-[#2563EB] dark:text-[#3B82F6]" : "text-[#A1A1AA] dark:text-[#A1A1AA]"
               )}
-              style={{ color: isActive ? item.color : colors.interchange }}
               aria-label={item.label}
             >
               <Icon className="h-5 w-5" />
-              <span className="text-[10px] font-medium" style={{ fontFamily: fontFamily.body, color: isActive ? colors.ink : colors.interchange }}>{item.label}</span>
+              <span className={cn("text-[10px] font-medium", isActive ? "text-[#18181B] dark:text-[#FAFAFA]" : "text-[#A1A1AA] dark:text-[#A1A1AA]")} style={{ fontFamily: fontFamily.body }}>{item.label}</span>
               {isActive && (
                 <motion.div
                   layoutId="mobile-active"
                   className="absolute -bottom-1 h-[2px] w-5 rounded-full"
                   style={{
-                    backgroundColor: item.color,
-                    boxShadow: `0 0 6px ${item.color}`,
+                    backgroundColor: isActive ? "#2563EB" : "#A1A1AA",
+                    boxShadow: `0 0 6px ${isActive ? "#2563EB" : "#A1A1AA"}`,
                   }}
                   transition={{ type: "spring", stiffness: 350, damping: 30 }}
                 />
@@ -392,7 +404,7 @@ function LogoMark({ size = 28 }: { size?: number }) {
         style={{
           width: size * 0.52,
           height: size * 0.52,
-          color: colors.paper,
+          color: "#FFFFFF",
           strokeWidth: 2.5,
         }}
       />

@@ -3,6 +3,8 @@
 import { useState } from "react"
 import { api } from "@/api"
 import { AmbientBackground } from "./AmbientBackground"
+import { colors, fontFamily, domainColor } from "../../tokens"
+import { Card } from "../interchange"
 
 function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -24,7 +26,7 @@ function LoginPage() {
   return (
     <div
       className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"
-      style={{ backgroundColor: "#0A0E14" }}
+      style={{ backgroundColor: "#FAFAFA", fontFamily: fontFamily.body, color: "#18181B" }}
     >
       <AmbientBackground />
 
@@ -75,35 +77,28 @@ function LoginPage() {
           <div className="space-y-2">
             <h1
               className="text-3xl font-display font-bold tracking-tight"
-              style={{ color: "#E4E7EC" }}
+              style={{ color: "#18181B", fontFamily: fontFamily.display }}
             >
               Poly_Taste
             </h1>
             <p
               className="text-sm font-sans"
-              style={{ color: "#7B8794" }}
+              style={{ color: "#71717A", fontFamily: fontFamily.body }}
             >
               Your taste, unified.
             </p>
           </div>
-
+          
           {/* Domain pills */}
           <div className="flex items-center justify-center gap-2 pt-1">
-            <Pill color="#7C6CF0" label="Music"  />
-            <Pill color="#FF7A59" label="Anime"  />
-            <Pill color="#E3A857" label="Food"   />
+            <Pill color={domainColor.music} label="Music"  />
+            <Pill color={domainColor.anime} label="Anime"  />
+            <Pill color={domainColor.food} label="Food"   />
           </div>
         </div>
 
         {/* Auth card */}
-        <div
-          className="space-y-4 p-6 rounded-2xl"
-          style={{
-            background: "rgba(18,24,31,0.80)",
-            backdropFilter: "blur(16px)",
-            border: "1px solid rgba(255,255,255,0.07)",
-          }}
-        >
+        <Card className="space-y-4 p-6">
           {/* Google sign-in */}
           <button
             id="btn-google-login"
@@ -148,7 +143,7 @@ function LoginPage() {
           >
             Skip for now — browse anime
           </button>
-        </div>
+        </Card>
 
         {/* Error */}
         {error && (

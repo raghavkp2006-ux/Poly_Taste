@@ -52,17 +52,17 @@ const Hero = React.forwardRef<HTMLElement, HeroProps>(
         >
           {/* Domain pills */}
           <div className="flex items-center gap-2">
-            <DomainPill label="Music"  color="#7C6CF0" />
+            <DomainPill label="Music"  color="#71717A" />
             <span className="text-muted-foreground text-xs font-mono">·</span>
-            <DomainPill label="Anime"  color="#FF7A59" />
+            <DomainPill label="Anime"  color="#71717A" />
             <span className="text-muted-foreground text-xs font-mono">·</span>
-            <DomainPill label="Food"   color="#E3A857" />
+            <DomainPill label="Food"   color="#71717A" />
           </div>
 
           {/* Title */}
           <h1
             className={cn(
-              "text-4xl sm:text-5xl md:text-6xl font-display font-bold tracking-tight text-foreground",
+              "text-4xl font-semibold tracking-tight text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out",
               titleClassName,
             )}
           >
@@ -73,7 +73,7 @@ const Hero = React.forwardRef<HTMLElement, HeroProps>(
           {subtitle && (
             <p
               className={cn(
-                "text-base md:text-lg text-muted-foreground font-sans max-w-[560px] leading-relaxed",
+                "text-base text-[#71717A] dark:text-[#A1A1AA] transition-colors duration-150 ease-out font-sans max-w-[560px] leading-relaxed",
                 subtitleClassName,
               )}
             >
@@ -103,12 +103,7 @@ export { Hero }
 function DomainPill({ label, color }: { label: string; color: string }) {
   return (
     <span
-      className="text-[10px] font-mono uppercase tracking-widest px-2.5 py-0.5 rounded-full"
-      style={{
-        color,
-        backgroundColor: `${color}15`,
-        border: `1px solid ${color}30`,
-      }}
+      className="text-[10px] font-mono uppercase tracking-widest px-2.5 py-0.5 rounded-full text-[#71717A] dark:text-[#A1A1AA] bg-transparent border border-[#E4E4E7] dark:border-[#27272A] transition-colors duration-150 ease-out"
     >
       {label}
     </span>
@@ -120,30 +115,22 @@ function DomainPill({ label, color }: { label: string; color: string }) {
 function DomainButton({ action }: { action: HeroAction }) {
   const { accentColor, className, onClick, href, label, variant = "outline" } = action
 
-  const accentStyle = accentColor
-    ? {
-        border: `1px solid ${accentColor}40`,
-        color: accentColor,
-        backgroundColor: `${accentColor}12`,
-        boxShadow: `0 0 20px ${accentColor}20`,
-      }
-    : undefined
+  const accentStyle = undefined
 
   return (
     <Button
       variant={variant}
       className={cn(
-        "relative overflow-hidden font-sans font-medium transition-all duration-200",
+        "relative overflow-hidden font-sans font-medium transition-all duration-200 rounded-lg",
         "hover:scale-[1.02] active:scale-[0.97]",
+        accentColor ? "border border-[#E4E4E7] dark:border-[#3F3F46] text-[#18181B] dark:text-[#FAFAFA] bg-transparent hover:border-[#D4D4D8] dark:hover:border-[#52525B] hover:bg-[#F4F4F5] dark:hover:bg-[#27272A] transition-colors duration-150 ease-out" : "",
         className,
       )}
-      style={accentStyle}
       asChild
     >
       <a
         href={href}
         onClick={onClick}
-        style={accentStyle}
         className={cn(
           "inline-flex items-center gap-2",
           "hover:brightness-110",

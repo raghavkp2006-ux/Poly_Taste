@@ -1,17 +1,14 @@
 import { Clock, Tv, UtensilsCrossed, Music, History } from "lucide-react"
 import { motion } from "framer-motion"
 import type { RecentItem, Category } from "../../types"
+import { Card, LineRail } from "../interchange"
+import { domainColor, inkAlpha } from "../../tokens"
+import type { Domain } from "../../tokens"
 
-const DOMAIN_COLORS: Record<Category, string> = {
-  anime:      "#FF7A59",
-  restaurant: "#E3A857",
-  music:      "#7C6CF0",
-}
-
-const DOMAIN_GLOW: Record<Category, string> = {
-  anime:      "glow-edge-anime",
-  restaurant: "glow-edge-food",
-  music:      "glow-edge-music",
+const CATEGORY_DOMAIN_MAP: Record<Category, Domain> = {
+  anime:      "anime",
+  restaurant: "food",
+  music:      "music",
 }
 
 const CATEGORY_ICONS: Record<Category, React.ElementType> = {
@@ -37,12 +34,11 @@ interface ContinueRowProps {
 
 export function ContinueRow({ items, loading }: ContinueRowProps) {
   return (
-    <section className="space-y-3">
+    <section className="space-y-3 min-w-0">
       {/* Section header */}
       <div className="flex items-center gap-3">
         <div
-          className="w-2 h-2 rounded-full shrink-0"
-          style={{ backgroundColor: "#A0AEC0", boxShadow: "0 0 6px #A0AEC0" }}
+          className="w-2 h-2 rounded-full shrink-0 bg-[#A1A1AA] dark:bg-[#A1A1AA]"
         />
         <h2 className="text-sm font-display font-semibold tracking-wide uppercase text-foreground">
           Continue
@@ -51,35 +47,30 @@ export function ContinueRow({ items, loading }: ContinueRowProps) {
       </div>
 
       {loading ? (
-        <div className="flex gap-3 overflow-hidden">
+        <div className="flex gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div
+            <Card
               key={i}
-              className="w-[160px] shrink-0 rounded-xl overflow-hidden"
-              style={{
-                background: "rgba(18,24,31,0.6)",
-                border: "1px solid rgba(255,255,255,0.05)",
-              }}
+              className="w-48 shrink-0 overflow-hidden"
             >
-              <div className="h-20 skeleton-dark rounded-none" />
+              <div className="h-20 w-full animate-pulse bg-black/10 dark:bg-white/10 transition-colors duration-150 ease-out" />
               <div className="p-2.5 space-y-1.5">
-                <div className="h-2 w-3/4 rounded-full skeleton-dark" />
-                <div className="h-2 w-1/2 rounded-full skeleton-dark" />
+                <div className="h-2 w-3/4 rounded-full animate-pulse bg-black/10 dark:bg-white/10 transition-colors duration-150 ease-out" />
+                <div className="h-2 w-1/2 rounded-full animate-pulse bg-black/10 dark:bg-white/10 transition-colors duration-150 ease-out" />
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       ) : items.length === 0 ? (
         <div
-          className="rounded-xl border border-dashed px-4 py-5 text-center"
-          style={{ borderColor: "rgba(255,255,255,0.1)" }}
+          className="rounded-xl border border-dashed border-[#E4E4E7] dark:border-[#27272A] transition-colors duration-150 ease-out px-4 py-5 text-center"
         >
           <p className="text-sm font-sans text-muted-foreground">
             No history yet — start exploring to build your trail.
           </p>
         </div>
       ) : (
-        <div className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-2">
+        <div className="flex gap-3 overflow-x-auto overflow-y-hidden scrollbar-hide snap-x snap-mandatory pb-1">
           {items.map((item, i) => (
             <RecentCard key={item.id} item={item} index={i} />
           ))}
@@ -91,32 +82,21 @@ export function ContinueRow({ items, loading }: ContinueRowProps) {
 
 function RecentCard({ item, index }: { item: RecentItem; index: number }) {
   const Icon   = CATEGORY_ICONS[item.category]
-  const accent = DOMAIN_COLORS[item.category]
-  const glow   = DOMAIN_GLOW[item.category]
+  const domain = CATEGORY_DOMAIN_MAP[item.category]
+  const accent = "#A1A1AA"
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 14, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ delay: index * 0.05, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ delay: index * 0.05, duration: 0.2, ease: "easeOut" }}
       whileHover={{ y: -6, transition: { duration: 0.2 } }}
-      className="snap-start shrink-0 w-[200px] cursor-pointer group"
+      className="snap-start shrink-0 w-48 cursor-pointer group"
     >
-      <div
-        className={`relative overflow-hidden rounded-xl gradient-border ${glow} transition-all duration-300`}
-        style={{
-          background: "rgba(18,24,31,0.75)",
-          backdropFilter: "blur(10px)",
-        }}
+      <Card
+        className="relative overflow-hidden h-full"
       >
-        {/* Domain accent glow behind content */}
-        <div
-          className="absolute top-0 left-0 w-full h-1"
-          style={{
-            background: `linear-gradient(90deg, ${accent} 0%, transparent 80%)`,
-            opacity: 0.6,
-          }}
-        />
+        
 
         {/* Image */}
         <div className="relative h-28 overflow-hidden">
@@ -124,37 +104,34 @@ function RecentCard({ item, index }: { item: RecentItem; index: number }) {
             <img
               src={item.imageUrl}
               alt={item.title}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              className="h-full w-full object-cover transition-transform duration-[100ms] group-hover:scale-[1.02]"
               loading="lazy"
             />
           ) : (
             <div
-              className="h-full w-full flex items-center justify-center"
-              style={{ backgroundColor: `${accent}15` }}
+              className="h-full w-full flex items-center justify-center bg-black/5 dark:bg-white/5 transition-colors duration-150 ease-out"
             >
-              <Icon className="h-10 w-10" style={{ color: accent, opacity: 0.5 }} />
+            <Icon className="h-10 w-10 text-[#A1A1AA] dark:text-[#A1A1AA] opacity-40" />
             </div>
           )}
-          {/* Scrim */}
           <div
-            className="absolute inset-0"
-            style={{ background: "linear-gradient(to top, rgba(18,24,31,0.9) 0%, transparent 60%)" }}
+            className="absolute inset-0 bg-gradient-to-t from-[#FFFFFF] dark:from-[#18181B] to-transparent via-[#FFFFFF]/60 dark:via-[#18181B]/60 transition-colors duration-150 ease-out"
           />
         </div>
 
         <div className="p-3 space-y-1.5">
-          <h3 className="text-xs font-sans font-semibold leading-snug line-clamp-2 text-foreground">
+          <h3 className="text-xs font-sans font-semibold leading-snug line-clamp-2 text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out">
             {item.title}
           </h3>
-          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono">
-            <Clock className="h-3 w-3" />
+          <div className="flex items-center gap-1.5 text-[10px] text-[#71717A] dark:text-[#A1A1AA] font-mono transition-colors duration-150 ease-out">
+            <Clock className="h-3 w-3 shrink-0" />
             <span>{timeAgo(item.viewedAt)}</span>
           </div>
         </div>
 
         {/* Spacer to match RecommendationRow height feel */}
         <div className="h-2" />
-      </div>
+      </Card>
     </motion.div>
   )
 }

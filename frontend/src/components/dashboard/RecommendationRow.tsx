@@ -53,23 +53,22 @@ export function RecommendationRow({
 }: RecommendationRowProps) {
   const meta = DOMAIN[category]
   const Icon = meta.icon
-  const color = domainColor[meta.domainKey]
+  const color = "#A1A1AA"
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-3 min-w-0">
       {/* Section header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 min-w-0">
         {/* Domain dot */}
         <div
           className="w-2 h-2 rounded-full shrink-0"
           style={{
             backgroundColor: color,
-            boxShadow: `0 0 8px ${color}`,
           }}
         />
         <h2 
-          className="text-sm font-semibold tracking-wide uppercase"
-          style={{ fontFamily: fontFamily.display, color: colors.interchange }}
+          className="text-sm font-semibold tracking-wide uppercase text-[#71717A] dark:text-[#A1A1AA] transition-colors duration-150 ease-out"
+          style={{ fontFamily: fontFamily.display }}
         >
           {meta.label}
         </h2>
@@ -78,12 +77,10 @@ export function RecommendationRow({
 
         {isConnected && items.length > 0 && (
           <span
-            className="ml-auto text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full"
+            className="ml-auto shrink-0 text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full border border-[#E4E4E7] dark:border-[#27272A] bg-[#FAFAFA] dark:bg-[#0A0A0B] transition-colors duration-150 ease-out"
             style={{
               fontFamily: fontFamily.mono,
-              border: `1px solid ${domainAlpha(meta.domainKey, 0.3)}`,
-              color:  color,
-              backgroundColor: domainAlpha(meta.domainKey, 0.1),
+              color: color,
             }}
           >
             {items.length} signals
@@ -92,37 +89,32 @@ export function RecommendationRow({
       </div>
 
       {/* Content */}
-      <div className="flex gap-4">
-        {/* Line Rail on the left */}
-        <LineRail domain={meta.domainKey} />
-
-        <div className="flex-1 min-w-0">
-          {loading ? (
-            <SignalCardSkeleton category={category} />
-          ) : error ? (
-            <ErrorState message={error} onRetry={onRetry} category={category} />
-          ) : (!isConnected || items.length === 0) ? (
-            <EmptyState
-              category={category}
-              meta={meta}
-              onNavigate={onNavigate}
-              isConnected={isConnected}
-            />
-          ) : (
-            <div className="flex gap-4 pb-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
-              {items.map((item, i) => (
-                <SignalCard
-                  key={item.id}
-                  item={item}
-                  index={i}
-                  category={category}
-                  meta={meta}
-                  onNavigate={onNavigate}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+      <div className="min-w-0">
+        {loading ? (
+          <SignalCardSkeleton category={category} />
+        ) : error ? (
+          <ErrorState message={error} onRetry={onRetry} category={category} />
+        ) : (!isConnected || items.length === 0) ? (
+          <EmptyState
+            category={category}
+            meta={meta}
+            onNavigate={onNavigate}
+            isConnected={isConnected}
+          />
+        ) : (
+          <div className="flex gap-4 pb-3 overflow-x-auto overflow-y-hidden scrollbar-hide snap-x snap-mandatory">
+            {items.map((item, i) => (
+              <SignalCard
+                key={item.id}
+                item={item}
+                index={i}
+                category={category}
+                meta={meta}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )
@@ -143,7 +135,7 @@ function SignalCard({
   meta: typeof DOMAIN[Category]
   onNavigate: (page: PageId) => void
 }) {
-  const accent = domainColor[meta.domainKey]
+  const accent = "#A1A1AA"
 
   const handleClick = () => {
     if (category === "anime")      onNavigate("anime")
@@ -157,10 +149,10 @@ function SignalCard({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{
         delay:    index * 0.06,
-        duration: 0.45,
+        duration: 0.2,
         ease:     [0.22, 1, 0.36, 1],
       }}
-      className="snap-start shrink-0 w-[200px]"
+      className="snap-start shrink-0 w-48"
     >
       <Card
         domain={meta.domainKey}
@@ -173,32 +165,27 @@ function SignalCard({
             <img
               src={getHighResImageUrl(item.imageUrl)}
               alt={item.title}
-              className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
+              className="h-full w-full object-cover transition-transform duration-[100ms] hover:scale-[1.02]"
               loading="lazy"
             />
           ) : (
             <div
-              className="h-full w-full flex items-center justify-center"
-              style={{ backgroundColor: domainAlpha(meta.domainKey, 0.15) }}
+              className="h-full w-full flex items-center justify-center bg-[#F4F4F5] dark:bg-[#27272A] transition-colors duration-150 ease-out"
             >
-              <meta.icon className="h-10 w-10" style={{ color: accent, opacity: 0.5 }} />
+              <meta.icon className="h-10 w-10 text-[#A1A1AA] dark:text-[#71717A] opacity-60" />
             </div>
           )}
-          {/* Image scrim */}
           <div
-            className="absolute inset-0"
-            style={{
-              background: `linear-gradient(to top, ${colors.paper} 0%, transparent 60%)`,
-            }}
+            className="absolute inset-0 bg-gradient-to-t from-[#FFFFFF] dark:from-[#18181B] to-transparent via-[#FFFFFF]/60 dark:via-[#18181B]/60 transition-colors duration-150 ease-out"
           />
         </div>
 
         {/* Content */}
         <div className="p-3 space-y-1.5 flex-1 relative z-10 -mt-4">
-          <h3 className="text-sm font-semibold leading-snug line-clamp-2" style={{ color: colors.ink }}>
+          <h3 className="text-sm font-semibold leading-snug line-clamp-2 text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out">
             {item.title}
           </h3>
-          <p className="text-[10px] line-clamp-2 leading-relaxed" style={{ color: colors.interchange }}>
+          <p className="text-[10px] line-clamp-2 leading-relaxed text-[#71717A] dark:text-[#A1A1AA] transition-colors duration-150 ease-out">
             {item.reason}
           </p>
         </div>
@@ -217,23 +204,22 @@ function SignalCard({
 function SignalCardSkeleton({ category }: { category: Category }) {
   const meta = DOMAIN[category]
   return (
-    <div className="flex gap-4 overflow-hidden">
+    <div className="flex gap-4 overflow-x-auto overflow-y-hidden scrollbar-hide">
       {Array.from({ length: 5 }).map((_, i) => (
-        <Card key={i} className="w-[200px] shrink-0 overflow-hidden relative">
+        <Card key={i} className="w-48 shrink-0 overflow-hidden relative">
           <div
-            className="h-1 w-full"
-            style={{ backgroundColor: domainAlpha(meta.domainKey, 0.3) }}
+            className="h-1 w-full bg-[#E4E4E7] dark:bg-[#27272A] transition-colors duration-150 ease-out"
           />
           <div
-            className="h-28 skeleton-light"
+            className="h-28 animate-pulse bg-[#E4E4E7] dark:bg-[#27272A] transition-colors duration-150 ease-out"
             style={{ borderRadius: 0 }}
           />
           <div className="p-3 space-y-2">
-            <div className="h-2.5 w-3/4 rounded-full skeleton-light" />
-            <div className="h-2 w-full rounded-full skeleton-light" />
-            <div className="h-2 w-2/3 rounded-full skeleton-light" />
+            <div className="h-2.5 w-3/4 rounded-full animate-pulse bg-[#E4E4E7] dark:bg-[#27272A] transition-colors duration-150 ease-out" />
+            <div className="h-2 w-full rounded-full animate-pulse bg-[#E4E4E7] dark:bg-[#27272A] transition-colors duration-150 ease-out" />
+            <div className="h-2 w-2/3 rounded-full animate-pulse bg-[#E4E4E7] dark:bg-[#27272A] transition-colors duration-150 ease-out" />
           </div>
-          <div className="absolute bottom-3 right-3 w-10 h-10 rounded-full skeleton-light" />
+          <div className="absolute bottom-3 right-3 w-10 h-10 rounded-full animate-pulse bg-[#E4E4E7] dark:bg-[#27272A] transition-colors duration-150 ease-out" />
         </Card>
       ))}
     </div>
@@ -252,15 +238,15 @@ function ErrorState({
   category: Category
 }) {
   const meta = DOMAIN[category]
-  const color = domainColor[meta.domainKey]
+  const color = "#A1A1AA"
   return (
     <Card className="flex items-center gap-3 p-3">
       <AlertCircle className="h-4 w-4 shrink-0" style={{ color }} />
-      <p className="text-sm flex-1" style={{ color: colors.ink }}>{message}</p>
+      <p className="text-sm flex-1 text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out">{message}</p>
       <button
         onClick={onRetry}
-        className="text-xs uppercase tracking-wider px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
-        style={{ fontFamily: fontFamily.mono, backgroundColor: domainAlpha(meta.domainKey, 0.1), color }}
+        className="text-xs uppercase tracking-wider px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80 bg-[#FAFAFA] dark:bg-[#0A0A0B] transition-colors duration-150 ease-out"
+        style={{ fontFamily: fontFamily.mono, color }}
       >
         Retry
       </button>
@@ -298,7 +284,7 @@ function EmptyState({
   isConnected?: boolean
 }) {
   const Icon = meta.icon
-  const color = domainColor[meta.domainKey]
+  const color = "#A1A1AA"
 
   let title = EMPTY_COPY[category].title
   let description = EMPTY_COPY[category].description
@@ -336,20 +322,20 @@ function EmptyState({
   return (
     <Card className="flex items-center gap-3 p-4">
       <div
-        className="flex items-center justify-center w-10 h-10 rounded-lg shrink-0"
-        style={{ backgroundColor: domainAlpha(meta.domainKey, 0.15), color: color }}
+        className="flex items-center justify-center w-10 h-10 rounded-lg shrink-0 bg-[#FAFAFA] dark:bg-[#0A0A0B] transition-colors duration-150 ease-out"
+        style={{ color: color }}
       >
         <Icon className="h-5 w-5" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium" style={{ color: colors.ink }}>{title}</p>
-        <p className="text-xs mt-0.5" style={{ color: colors.interchange }}>{description}</p>
+        <p className="text-sm font-medium text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out">{title}</p>
+        <p className="text-xs mt-0.5 text-[#71717A] dark:text-[#A1A1AA] transition-colors duration-150 ease-out">{description}</p>
       </div>
       {action && (
         <button
           onClick={handleAction}
-          className="text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-lg shrink-0 transition-opacity hover:opacity-80"
-          style={{ fontFamily: fontFamily.mono, backgroundColor: domainAlpha(meta.domainKey, 0.1), color: color }}
+          className="text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-lg shrink-0 transition-opacity hover:opacity-80 bg-[#FAFAFA] dark:bg-[#0A0A0B] transition-colors duration-150 ease-out"
+          style={{ fontFamily: fontFamily.mono, color: color }}
         >
           {action}
         </button>
