@@ -186,9 +186,9 @@ def _anilist_genre_signal(user_id: str) -> Dict[str, float]:
 
         if score > 0:
             weight = (score / 10.0) * _ANILIST_WEIGHT
+        elif status == "COMPLETED" and score == 0:
+            weight = 0.5 * _ANILIST_WEIGHT
         else:
-            # score == 0 means "not yet rated" on AniList — watching alone
-            # is not a reliable taste signal, so skip entirely.
             continue
 
         anime_entry = anime_catalog[idx]
@@ -199,20 +199,36 @@ def _anilist_genre_signal(user_id: str) -> Dict[str, float]:
     return profile
 
 
-def _restaurant_cuisine_signal(user_id: str) -> Dict[str, float]:
+CUISINE_ALLOWLIST = {
+    "italian_restaurant", "japanese_restaurant", "mexican_restaurant", 
+    "korean_restaurant", "french_restaurant", "fast_food_restaurant", 
+    "ramen_restaurant", "vegetarian_restaurant", "vegan_restaurant", 
+    "sushi_restaurant", "pizza_restaurant", "hamburger_restaurant",
+    "seafood_restaurant", "mediterranean_restaurant", "brunch_restaurant",
+    "dessert_restaurant", "fine_dining_restaurant", "fusion_restaurant",
+    "cafe", "bar", "pub", "wine_bar", "night_club", "bakery", "dessert_shop",
+    "family_restaurant", "meal_takeaway", "coffee_shop", "ice_cream_shop"
+}
+
+def _restaurant_cuisine_signal(user_id: str) -> Dict[str, Any]:
     """
-    Return a cuisine-frequency dict from the user's liked restaurants.
+    Return a cuisine-frequency dict and avg rating/price from the user's liked restaurants.
     """
     likes = get_likes(user_id, module="restaurants")
     if not likes:
-        return {}
+        return {"cuisines": {}, "avg_rating": None, "avg_price": None}
 
     try:
         from services.google_places_client import get_restaurant_details  # type: ignore[import]
     except ImportError:
-        return {}
+        return {"cuisines": {}, "avg_rating": None, "avg_price": None}
 
-    profile: Dict[str, float] = {}
+    cuisines: Dict[str, float] = {}
+    total_rating = 0.0
+    rating_count = 0
+    total_price = 0.0
+    price_count = 0
+
     for like in likes:
         place_id = like.get("item_id", "")
         if not place_id:
@@ -225,12 +241,25 @@ def _restaurant_cuisine_signal(user_id: str) -> Dict[str, float]:
             continue
             
         for r_type in entry.get("types", []):
-            if r_type in ["restaurant", "food", "point_of_interest", "establishment"]:
-                continue
             cat = r_type.lower()
-            profile[cat] = profile.get(cat, 0.0) + _RESTAURANT_WEIGHT
+            if cat in CUISINE_ALLOWLIST:
+                cuisines[cat] = cuisines.get(cat, 0.0) + _RESTAURANT_WEIGHT
 
-    return profile
+        r = entry.get("rating")
+        if r is not None:
+            total_rating += r
+            rating_count += 1
+            
+        p = entry.get("price_level")
+        if p is not None:
+            total_price += p
+            price_count += 1
+
+    return {
+        "cuisines": cuisines,
+        "avg_rating": total_rating / rating_count if rating_count > 0 else None,
+        "avg_price": total_price / price_count if price_count > 0 else None,
+    }
 
 
 def _merge_profiles(*profiles: Dict[str, float]) -> Dict[str, float]:
@@ -277,7 +306,11 @@ def compute_taste_profile(
 
     anime_profile = _anime_genre_signal(user_id)
     anilist_profile = _anilist_genre_signal(user_id)
-    restaurant_profile = _restaurant_cuisine_signal(user_id)
+    
+    restaurant_data = _restaurant_cuisine_signal(user_id)
+    restaurant_profile = restaurant_data.get("cuisines", {})
+    avg_price = restaurant_data.get("avg_price")
+    avg_rating = restaurant_data.get("avg_rating")
 
     merged = _merge_profiles(spotify_profile, anime_profile, anilist_profile, restaurant_profile)
 
@@ -331,6 +364,10 @@ def compute_taste_profile(
             "anime": anime_profile,
             "anilist": anilist_profile,
             "restaurants": restaurant_profile,
+        },
+        "restaurant_features": {
+            "avg_rating": avg_rating,
+            "avg_price_level": avg_price
         },
         "anilist_watched": anilist_watched,
         "crosswalk_anime": crosswalk_anime,

@@ -60,11 +60,14 @@ export const api = {
         const animeLikes = Object.keys(profile.breakdown?.anime || {});
         const anilistWatched = (profile.anilist_watched || []).map((x: any) => String(x.mal_id));
         const combinedIds = Array.from(new Set([...animeLikes, ...anilistWatched]));
-        const liked_ids = combinedIds.length > 0 ? combinedIds : ["21", "269", "1735"];
+        
+        if (combinedIds.length === 0) {
+          return [];
+        }
         
         const res = await fetchApi<{ recommendations: any[] }>("/anime/recommendations?limit=25", {
           method: "POST",
-          body: JSON.stringify({ liked_ids })
+          body: JSON.stringify({ liked_ids: combinedIds })
         });
         return res.recommendations.map(r => ({
           ...r,
@@ -73,16 +76,7 @@ export const api = {
           category: "anime"
         })) as import("./types").Recommendation[];
       } catch (e) {
-        const res = await fetchApi<{ recommendations: any[] }>("/anime/recommendations?limit=25", {
-          method: "POST",
-          body: JSON.stringify({ liked_ids: ["21", "269", "1735"] })
-        });
-        return res.recommendations.map(r => ({
-          ...r,
-          id: String(r.id),
-          score: Math.round(r.score * 100),
-          category: "anime"
-        })) as import("./types").Recommendation[];
+        throw new Error("Couldn't load your recommendations, try refreshing");
       }
     },
     like: (mal_id: number) => fetchApi("/anime/" + mal_id + "/like", { method: "POST" }),

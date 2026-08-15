@@ -13,3 +13,4 @@ sqlalchemy
 feedparser
 itsdangerous
 kagglehub
+sentence-transformers

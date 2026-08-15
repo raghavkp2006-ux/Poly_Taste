@@ -39,8 +39,8 @@ function useFetchWithFallback<T>(
     setState((prev) => ({ ...prev, loading: true, error: null }))
     fetcher()
       .then((data) => setState({ data, loading: false, error: null }))
-      .catch(() => {
-        setState({ data: fallback, loading: false, error: null })
+      .catch((err) => {
+        setState({ data: fallback, loading: false, error: err.message || "Failed to load" })
       })
   }, [fetcher, fallback])
 

@@ -259,7 +259,7 @@ function ErrorState({
 const EMPTY_COPY: Record<Category, { title: string; description: string; action?: string }> = {
   anime: {
     title:       "No anime signals yet",
-    description: "Rate some shows to train your signal.",
+    description: "Connect AniList or like a few anime to get recommendations",
     action:      "Browse Anime",
   },
   restaurant: {

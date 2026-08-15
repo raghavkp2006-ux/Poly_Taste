@@ -44,7 +44,7 @@ from services.anilist_client import fetch_reviews_by_mal_id, fetch_upcoming_anim
 from services.jikan_client import get_catalog_from_s3
 
 from services.anime_recommender import (
-    vectorizer, anime_model, device, anime_data_map, 
+    sentence_transformer, anime_model, device, anime_data_map, 
     latent_matrix, latent_ids, get_or_compute_embedding
 )
 
@@ -73,22 +73,22 @@ def _resolve_query(value: Any, fallback: int) -> int:
     return fallback
 
 # ---------------------------------------------------------------------------
-# Cold-start: catalog + TF-IDF + AutoEncoder (unchanged)
+# Cold-start: catalog + SentenceTransformer + AutoEncoder
 # ---------------------------------------------------------------------------
 
 catalog = get_catalog_from_s3()
 mal_id_to_index = {anime["mal_id"]: i for i, anime in enumerate(catalog)}
 
 latent_catalog = None
-if catalog and vectorizer is not None:
+if catalog and sentence_transformer is not None:
     texts = [
         f"{anime.get('synopsis', '')} {' '.join(anime.get('genres', []))}"
         for anime in catalog
     ]
-    tf_idf_matrix = vectorizer.transform(texts).toarray()
+    dense_matrix = sentence_transformer.encode(texts)
     with torch.no_grad():
-        tf_idf_tensor = torch.tensor(tf_idf_matrix, dtype=torch.float32).to(device)
-        latent_catalog = anime_model.encode(tf_idf_tensor)
+        dense_tensor = torch.tensor(dense_matrix, dtype=torch.float32).to(device)
+        latent_catalog = anime_model.encode(dense_tensor)
 
 # ---------------------------------------------------------------------------
 # Cold-start: ANN RSS feed (cached per Lambda instance)

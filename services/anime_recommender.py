@@ -15,19 +15,56 @@ from services.anilist_client import fetch_anime_metadata
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-vectorizer_path = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data",
-    "models",
-    "tfidf_vectorizer.pkl"
-)
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 
-vectorizer = None
-if os.path.exists(vectorizer_path):
-    with open(vectorizer_path, 'rb') as f:
-        vectorizer = pickle.load(f)
+def _download_from_s3_if_needed(key: str, local_path: str) -> None:
+    """Download a file from S3 if S3_BUCKET_NAME is set and local file does not exist."""
+    if not S3_BUCKET_NAME or os.path.exists(local_path):
+        return
+    try:
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        import boto3
+        s3 = boto3.client("s3")
+        print(f"[s3] Downloading {key} from bucket '{S3_BUCKET_NAME}' to '{local_path}'...")
+        s3.download_file(S3_BUCKET_NAME, key, local_path)
+        print(f"[s3] Downloaded {key} successfully.")
+    except Exception as e:
+        print(f"[s3] Failed to download {key} from S3: {e}")
 
-anime_model = AnimeAutoEncoder(input_dim=1000, latent_dim=32).to(device)
+def upload_models_to_s3() -> None:
+    """Upload model weights and embeddings pkl files to S3 if S3_BUCKET_NAME is configured."""
+    if not S3_BUCKET_NAME:
+        print("[s3] S3_BUCKET_NAME environment variable not set. Cannot upload to S3.")
+        return
+
+    import boto3
+    from botocore.exceptions import ClientError
+    s3 = boto3.client("s3")
+
+    targets = [
+        ("models/anime_model.pth", _model_path),
+        ("processed/anime_embeddings.pkl", _pkl_path),
+    ]
+
+    for key, local_path in targets:
+        if not os.path.exists(local_path):
+            print(f"[s3] Local file {local_path} does not exist. Cannot upload.")
+            continue
+        try:
+            print(f"[s3] Uploading {local_path} to S3 key '{key}' in bucket '{S3_BUCKET_NAME}'...")
+            s3.upload_file(local_path, S3_BUCKET_NAME, key)
+            print(f"[s3] Successfully uploaded {key} to S3.")
+        except ClientError as e:
+            print(f"[s3] Error uploading {key} to S3: {e}")
+        except Exception as e:
+            print(f"[s3] Unexpected error uploading {key}: {e}")
+
+# Load SentenceTransformer model once at module level
+from sentence_transformers import SentenceTransformer
+
+sentence_transformer = SentenceTransformer("all-MiniLM-L6-v2")
+
+anime_model = AnimeAutoEncoder(input_dim=384, latent_dim=32).to(device)
 _model_path = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     "data",
@@ -45,6 +82,8 @@ _pkl_path = os.path.join(
     "processed",
     "anime_embeddings.pkl",
 )
+
+_download_from_s3_if_needed("processed/anime_embeddings.pkl", _pkl_path)
 
 anime_data_map = {}
 latent_ids = []
@@ -76,7 +115,7 @@ def get_or_compute_embedding(anime_id: int, metadata: dict = None) -> Tuple[Opti
     """
     Returns the 32-d latent embedding for an anime, its title, and its genres.
     If the anime is not in the precomputed set, it fetches metadata and computes
-    the embedding on the fly using the TF-IDF vectorizer and AutoEncoder.
+    the embedding on the fly using the SentenceTransformer and AutoEncoder.
     
     Returns (embedding, title, genres). 
     If metadata is too thin, embedding will be None.
@@ -125,7 +164,6 @@ def get_or_compute_embedding(anime_id: int, metadata: dict = None) -> Tuple[Opti
     combined_text = f"{synopsis} {genres_str} {tags_str}"
     
     # 5. Check for thin metadata (less than 20 words/tokens after basic splitting)
-    # The actual vectorizer does more complex tokenization, but a simple split is a good proxy.
     import re
     cleaned = re.sub(r'[^a-zA-Z0-9\s]', '', combined_text.lower())
     tokens = cleaned.split()
@@ -134,17 +172,16 @@ def get_or_compute_embedding(anime_id: int, metadata: dict = None) -> Tuple[Opti
         print(f"[cold-start] Anime {anime_id} has thin metadata ({len(tokens)} tokens). Skipping embedding.")
         return None, title, genres_list
         
-    # 6. Transform and encode
-    if vectorizer is None or anime_model is None:
-        print("[cold-start] Model or vectorizer not loaded.")
+    # 6. Transform and encode using SentenceTransformer
+    if sentence_transformer is None or anime_model is None:
+        print("[cold-start] Model or SentenceTransformer not loaded.")
         return None, title, genres_list
         
-    # NEVER use fit_transform here, only transform
-    tf_idf_matrix = vectorizer.transform([combined_text]).toarray()
-    tf_idf_tensor = torch.tensor(tf_idf_matrix, dtype=torch.float32).to(device)
+    dense_vec = sentence_transformer.encode([combined_text])
+    feature_tensor = torch.tensor(dense_vec, dtype=torch.float32).to(device)
     
     with torch.no_grad():
-        embedding = anime_model.encode(tf_idf_tensor).cpu().numpy()[0]
+        embedding = anime_model.encode(feature_tensor).cpu().numpy()[0]
         
     # 7. Cache it
     cold_start_embeddings[str_id] = {
