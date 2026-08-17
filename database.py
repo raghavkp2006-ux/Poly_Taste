@@ -66,7 +66,7 @@ if not _use_local:
 # LOCAL mode — SQLite via SQLAlchemy
 # ---------------------------------------------------------------------------
 if _use_local:
-    from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, UniqueConstraint, ForeignKey
+    from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, UniqueConstraint, ForeignKey, text
     from sqlalchemy.orm import declarative_base, sessionmaker, relationship
     from datetime import datetime, timezone
 
@@ -184,6 +184,16 @@ if _use_local:
             }
 
     Base.metadata.create_all(bind=_engine)
+
+    # Inline schema migration to add new columns to existing DB if missing
+    with _engine.begin() as conn:
+        result = conn.execute(text("PRAGMA table_info(spotify_users)"))
+        columns = [row[1] for row in result]
+        if "spotify_account_id" not in columns:
+            conn.execute(text("ALTER TABLE spotify_users ADD COLUMN spotify_account_id TEXT"))
+        if "spotify_display_name" not in columns:
+            conn.execute(text("ALTER TABLE spotify_users ADD COLUMN spotify_display_name TEXT"))
+
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
 
     def get_db():

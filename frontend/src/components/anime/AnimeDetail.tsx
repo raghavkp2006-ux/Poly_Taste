@@ -150,17 +150,17 @@ export function AnimeDetail({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {videos.map((v) => (
               <Card
-                key={v.id.videoId}
+                key={v.video_id}
                 className="overflow-hidden flex flex-col relative"
               >
                 <iframe
                   className="w-full aspect-video"
-                  src={`https://www.youtube.com/embed/${v.id.videoId}`}
-                  title={v.snippet.title}
+                  src={`https://www.youtube.com/embed/${v.video_id}`}
+                  title={v.title}
                   allowFullScreen
                 />
                 <div className="p-3 text-xs font-sans text-muted-foreground line-clamp-2">
-                  {v.snippet.title}
+                  {v.title}
                 </div>
               </Card>
             ))}

@@ -356,23 +356,11 @@ def spotify_callback(code: str | None = None, state: str | None = None, error: s
     refresh_token = token_info.get("refresh_token")
     expires_at = int(time.time()) + token_info["expires_in"]
 
-    print(f"[DIAGNOSTIC] Token exchange status: {token_response.status_code}, access_token present: {'access_token' in token_info}")
-
-    try:
-        user_response = requests.get(
-            "https://api.spotify.com/v1/me",
-            headers={"Authorization": f"Bearer {access_token}"}
-        )
-        print(f"[DIAGNOSTIC] /v1/me status: {user_response.status_code}")
-        print(f"[DIAGNOSTIC] /v1/me text: {user_response.text}")
-    except Exception as e:
-        import traceback
-        print(f"[DIAGNOSTIC] /v1/me exception: {e}")
-        print(traceback.format_exc())
-        raise
-
+    user_response = requests.get(
+        "https://api.spotify.com/v1/me",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
     if user_response.status_code != 200:
-        print(f"[DIAGNOSTIC] Raising 'Failed to get user profile' due to status {user_response.status_code}")
         raise HTTPException(status_code=400, detail="Failed to get user profile")
     
     profile = user_response.json()

@@ -49,8 +49,9 @@ def test_taste_profile_no_anilist_connection():
         app.dependency_overrides.pop(get_current_user_id, None)
 
 def test_taste_profile_connected_anilist():
-    """Connected user with a real list -> breakdown.anilist populated for rated entries only.
-    Unscored entries (score == 0) contribute ZERO weight.
+    """Connected user with a real list -> breakdown.anilist populated.
+    Rated entries get score-proportional weight; unscored entries (score == 0)
+    get a reduced default weight (0.5 * _ANILIST_WEIGHT = 1.0).
     DROPPED entries are ignored.
     """
     user_record = {
@@ -60,7 +61,7 @@ def test_taste_profile_connected_anilist():
     }
     
     # 1: mal_id=1, score=9.0 (Action, Shonen) -> Status COMPLETED -> contributes
-    # 2: mal_id=2, score=0.0 (Slice of Life, Drama) -> Status CURRENT (unscored -> SKIP)
+    # 2: mal_id=2, score=0.0 (Slice of Life, Drama) -> Status CURRENT (unscored -> reduced weight)
     # 3: mal_id=3, score=10.0 (Sci-Fi, Mecha) -> Status DROPPED (should be ignored)
     mock_anime_list = [
         {"mal_id": 1, "score": 9.0, "status": "COMPLETED", "title": "Action Hero"},
@@ -81,9 +82,11 @@ def test_taste_profile_connected_anilist():
         assert "shonen" in anilist_breakdown
         assert pytest.approx(anilist_breakdown["shonen"]) == 1.8
         
-        # mal_id=2: score=0.0 -> SKIPPED entirely (no weight for unrated)
-        assert "slice of life" not in anilist_breakdown
-        assert "drama" not in anilist_breakdown
+        # mal_id=2: score=0.0 -> default weight = 0.5 * 2.0 = 1.0
+        assert "slice of life" in anilist_breakdown
+        assert pytest.approx(anilist_breakdown["slice of life"]) == 1.0
+        assert "drama" in anilist_breakdown
+        assert pytest.approx(anilist_breakdown["drama"]) == 1.0
         
         # mal_id=3 (DROPPED): should be ignored
         assert "sci-fi" not in anilist_breakdown
@@ -123,9 +126,9 @@ def test_null_idmal_entry_skipped():
         assert pytest.approx(anilist_breakdown["shonen"]) == 1.6
 
 
-def test_large_unrated_backlog_zero_weight():
-    """A large unrated backlog (50 entries, score=0) contributes zero weight.
-    A handful of rated entries still score correctly.
+def test_large_unrated_backlog_reduced_weight():
+    """A large unrated backlog (50 entries, score=0) contributes reduced weight.
+    Rated entries still dominate with score-proportional weights.
     """
     user_record = {
         "user_id": "user_test_42",
@@ -153,9 +156,11 @@ def test_large_unrated_backlog_zero_weight():
         profile_data = compute_taste_profile("user_test_42")
         anilist_breakdown = profile_data["breakdown"]["anilist"]
         
-        # Unrated entries should contribute nothing
-        assert "slice of life" not in anilist_breakdown
-        assert "drama" not in anilist_breakdown
+        # Unrated entries: 50 × (0.5 * 2.0) = 50.0 per genre
+        assert "slice of life" in anilist_breakdown
+        assert pytest.approx(anilist_breakdown["slice of life"]) == 50.0
+        assert "drama" in anilist_breakdown
+        assert pytest.approx(anilist_breakdown["drama"]) == 50.0
         
         # Rated entries should score correctly
         # mal_id=1: score=9.0 -> weight = 1.8

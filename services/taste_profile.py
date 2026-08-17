@@ -152,6 +152,10 @@ def _anime_genre_signal(user_id: str) -> Dict[str, float]:
 def _anilist_genre_signal(user_id: str) -> Dict[str, float]:
     """
     Return a genre-frequency dict from the user's AniList anime list.
+
+    Genre data comes directly from the AniList API response.  If an entry
+    lacks genres (older cached responses), the local catalog is used as a
+    fallback.
     """
     anilist_user = get_anilist_user(user_id)
     if not anilist_user:
@@ -166,10 +170,12 @@ def _anilist_genre_signal(user_id: str) -> Dict[str, float]:
     if not anime_list:
         return {}
 
+    # Optional fallback: local catalog for entries missing genres
     try:
         from routers.anime import catalog as anime_catalog, mal_id_to_index  # type: ignore[import]
     except ImportError:
-        return {}
+        anime_catalog = []
+        mal_id_to_index = {}
 
     profile: Dict[str, float] = {}
     for entry in anime_list:
@@ -177,22 +183,27 @@ def _anilist_genre_signal(user_id: str) -> Dict[str, float]:
         if status not in {"CURRENT", "COMPLETED", "REPEATING"}:
             continue
 
-        mal_id = entry.get("mal_id")
         score = entry.get("score", 0.0)
-
-        idx = mal_id_to_index.get(mal_id)
-        if idx is None:
-            continue
 
         if score > 0:
             weight = (score / 10.0) * _ANILIST_WEIGHT
-        elif status == "COMPLETED" and score == 0:
-            weight = 0.5 * _ANILIST_WEIGHT
         else:
-            continue
+            # score == 0 means "not yet rated" on AniList — use a reduced
+            # default weight.  Watching/completing is a weaker signal than
+            # an explicit rating, but still meaningful (especially for
+            # users who never rate).  0.5 × _ANILIST_WEIGHT keeps unrated
+            # entries from dominating while ensuring they surface at all.
+            weight = 0.5 * _ANILIST_WEIGHT
 
-        anime_entry = anime_catalog[idx]
-        for genre in anime_entry.get("genres", []):
+        # Prefer genres from AniList response; fall back to local catalog
+        genres = entry.get("genres") or []
+        if not genres:
+            mal_id = entry.get("mal_id")
+            idx = mal_id_to_index.get(mal_id)
+            if idx is not None:
+                genres = anime_catalog[idx].get("genres", [])
+
+        for genre in genres:
             genre_key = genre.lower()
             profile[genre_key] = profile.get(genre_key, 0.0) + weight
 
@@ -207,7 +218,8 @@ CUISINE_ALLOWLIST = {
     "seafood_restaurant", "mediterranean_restaurant", "brunch_restaurant",
     "dessert_restaurant", "fine_dining_restaurant", "fusion_restaurant",
     "cafe", "bar", "pub", "wine_bar", "night_club", "bakery", "dessert_shop",
-    "family_restaurant", "meal_takeaway", "coffee_shop", "ice_cream_shop"
+    "family_restaurant", "meal_takeaway", "coffee_shop", "ice_cream_shop",
+    "thai_restaurant"
 }
 
 def _restaurant_cuisine_signal(user_id: str) -> Dict[str, Any]:

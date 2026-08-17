@@ -443,6 +443,7 @@ def fetch_user_anime_list(access_token: str, anilist_user_id: int) -> List[Dict[
             score(format: POINT_10)
             media {
               idMal
+              genres
               title {
                 romaji
                 english
@@ -494,7 +495,8 @@ def fetch_user_anime_list(access_token: str, anilist_user_id: int) -> List[Dict[
                     "mal_id": int(mal_id),
                     "score": score_val,
                     "status": entry.get("status"),
-                    "title": title
+                    "title": title,
+                    "genres": media.get("genres") or [],
                 })
         return results
     except Exception as exc:

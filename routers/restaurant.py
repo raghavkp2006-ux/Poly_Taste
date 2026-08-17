@@ -10,7 +10,7 @@ from services.google_places_client import search_restaurants, get_restaurant_det
 
 router = APIRouter(prefix="/restaurant", tags=["restaurant"])
 
-GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY")
+GEOAPIFY_API_KEY = os.getenv("GEOAPIFY_API_KEY", os.getenv("GOOGLE_PLACES_API_KEY"))
 
 # ---------- Schemas ----------
 
@@ -52,8 +52,8 @@ def search_restaurants_endpoint(
     lng: Optional[float] = None,
     radius: Optional[int] = None
 ):
-    if not GOOGLE_PLACES_API_KEY:
-        raise HTTPException(status_code=500, detail="GOOGLE_PLACES_API_KEY is not configured")
+    if not GEOAPIFY_API_KEY:
+        raise HTTPException(status_code=500, detail="GEOAPIFY_API_KEY is not configured")
         
     results = search_restaurants(query=query, lat=lat, lon=lng)
     
@@ -63,8 +63,8 @@ def search_restaurants_endpoint(
 
 @router.get("/{place_id}")
 def get_restaurant_detail(place_id: str, db: Session = Depends(get_db)):
-    if not GOOGLE_PLACES_API_KEY:
-        raise HTTPException(status_code=500, detail="GOOGLE_PLACES_API_KEY is not configured")
+    if not GEOAPIFY_API_KEY:
+        raise HTTPException(status_code=500, detail="GEOAPIFY_API_KEY is not configured")
 
     details = get_restaurant_details(place_id)
     if not details:
@@ -134,8 +134,8 @@ def get_recommendations(
     db: Session = Depends(get_db), 
     limit: int = 10
 ):
-    if not GOOGLE_PLACES_API_KEY:
-        raise HTTPException(status_code=500, detail="GOOGLE_PLACES_API_KEY is not configured")
+    if not GEOAPIFY_API_KEY:
+        raise HTTPException(status_code=500, detail="GEOAPIFY_API_KEY is not configured")
 
     # a. Find types user rated >= 4 stars
     high_reviews = (
@@ -160,7 +160,7 @@ def get_recommendations(
                 RecommendationItem(
                     id=r.get("place_id"),
                     title=r.get("name"),
-                    imageUrl=f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference={r.get('photo_reference')}&key={GOOGLE_PLACES_API_KEY}" if r.get("photo_reference") else None,
+                    imageUrl=r.get("photo_reference") if r.get("photo_reference") else None,
                     reason="Popular near you",
                     score=r.get("rating") or 0.0
                 )
@@ -196,7 +196,7 @@ def get_recommendations(
             RecommendationItem(
                 id=r.get("place_id"),
                 title=r.get("name"),
-                imageUrl=f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference={r.get('photo_reference')}&key={GOOGLE_PLACES_API_KEY}" if r.get("photo_reference") else None,
+                imageUrl=r.get("photo_reference") if r.get("photo_reference") else None,
                 reason=reason,
                 score=r.get("rating") or 0.0
             )

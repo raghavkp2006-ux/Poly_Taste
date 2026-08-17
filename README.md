@@ -153,8 +153,8 @@ All external HTTP calls are mocked in the test suite — no live API access or c
 See [docs/architecture.md](docs/architecture.md) for the full AWS infrastructure diagram.
 
 - **FastAPI** + **Mangum** → single AWS Lambda function
-- **DynamoDB** → Spotify user token storage (production)
-- **SQLite** → Spotify user token storage (local dev, auto-detected)
+- **DynamoDB** → User identity & OAuth token storage (production)
+- **SQLite** → User identity & OAuth token storage (local dev, auto-detected)
 - **S3** → Anime/Amazon static catalog storage (production)
 - **Local JSON** → Catalog fallback (local dev, auto-detected)
 
