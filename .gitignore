@@ -45,7 +45,12 @@ kaggle.json
 .kaggle/
 # Data models and binaries
 data/models/  
-data/processed/  
+data/processed/*
+!data/processed/anime_embeddings.pkl
 node-v22.14.0-win-x64/  
 node.zip  
 frontend_skill_temp*/
+audit.py
+mock_taste_profile.py
+scratch_taste.py
+apply_dark_mode.py
