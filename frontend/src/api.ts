@@ -82,15 +82,6 @@ export const api = {
     like: (mal_id: number) => fetchApi("/anime/" + mal_id + "/like", { method: "POST" }),
     unlike: (mal_id: number) => fetchApi("/anime/" + mal_id + "/like", { method: "DELETE" }),
   },
-  restaurants: {
-    search: (q: string, lat?: number, lon?: number, location?: string) =>
-      fetchApi<any>(`/restaurants/search?q=${encodeURIComponent(q)}&lat=${lat ?? ""}&lon=${lon ?? ""}&location=${encodeURIComponent(location || "")}`),
-    getDetail: (place_id: string) => fetchApi<any>(`/restaurants/${place_id}`),
-    recommend: (place_id: string, personalize: boolean = false) => 
-      fetchApi<{ recommendations: any[], personalized: boolean }>(`/restaurants/${place_id}/recommend?personalize=${personalize}`),
-    like: (place_id: string) => fetchApi(`/restaurants/${place_id}/like`, { method: "POST" }),
-    unlike: (place_id: string) => fetchApi(`/restaurants/${place_id}/like`, { method: "DELETE" }),
-  },
   recommendations: {
     getByCategory: (category: string) =>
       fetchApi<import("./types").Recommendation[]>(`/api/recommendations?category=${category}`),
@@ -107,6 +98,22 @@ export const api = {
   connections: {
     getStatus: () =>
       fetchApi<{ spotify: boolean; anilist: boolean; location: boolean }>("/connections/status"),
+  },
+  touristSpots: {
+    getAll: (category?: string, price_tier?: string) => {
+      const params = new URLSearchParams()
+      if (category && category !== "all") params.append("category", category)
+      if (price_tier) params.append("price_tier", price_tier)
+      const qs = params.toString() ? `?${params.toString()}` : ""
+      return fetchApi<import("./types").TouristSpot[]>(`/tourist-spots${qs}`)
+    },
+    getById: (place_id: string) =>
+      fetchApi<import("./types").TouristSpot>(`/tourist-spots/${place_id}`),
+    feedback: (place_id: string, rating: number, tag?: string) =>
+      fetchApi<import("./types").SpotFeedbackResponse>(`/tourist-spots/${place_id}/feedback`, {
+        method: "POST",
+        body: JSON.stringify({ rating, ...(tag ? { tag } : {}) }),
+      }),
   },
 }
 

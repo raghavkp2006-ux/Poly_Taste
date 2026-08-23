@@ -4,21 +4,12 @@ import {
   Eye,
   PlusCircle,
   Tv,
-  UtensilsCrossed,
   Music,
   Activity,
 } from "lucide-react"
 import { motion } from "framer-motion"
 import type { ActivityItem, ActivityAction, Category } from "../../types"
-import { Card, LineRail } from "../interchange"
-import { domainColor, inkAlpha } from "../../tokens"
-import type { Domain } from "../../tokens"
-
-const CATEGORY_DOMAIN_MAP: Record<Category, Domain> = {
-  anime:      "anime",
-  restaurant: "food",
-  music:      "music",
-}
+import { Card } from "../interchange"
 
 // ── Action icons & accent colors ─────────────────────────────────────
 
@@ -38,7 +29,6 @@ const ACTION_COLORS: Record<ActivityAction, string> = {
 
 const CATEGORY_ICONS: Record<Category, React.ElementType> = {
   anime:      Tv,
-  restaurant: UtensilsCrossed,
   music:      Music,
 }
 
@@ -124,8 +114,6 @@ function ActivityCard({ item, index }: { item: ActivityItem; index: number }) {
   const ActionIcon   = ACTION_ICONS[item.action]
   const CategoryIcon = CATEGORY_ICONS[item.category]
   const actionColor  = ACTION_COLORS[item.action]
-  const domain       = CATEGORY_DOMAIN_MAP[item.category]
-  const catColor     = "#A1A1AA"
 
   return (
     <motion.div

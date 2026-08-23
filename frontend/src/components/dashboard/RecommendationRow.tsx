@@ -1,27 +1,22 @@
-import { Tv, UtensilsCrossed, Music, AlertCircle } from "lucide-react"
+import { Tv, Music, AlertCircle } from "lucide-react"
 import { motion } from "framer-motion"
 import { getHighResImageUrl } from "../../lib/utils"
 import type { Recommendation, Category, PageId } from "../../types"
 import { api } from "../../api"
-import { domainColor, domainAlpha, colors, fontFamily } from "../../tokens"
-import { LineRail, StationBadge, Card } from "../interchange"
+import { fontFamily } from "../../tokens"
+import { StationBadge, Card } from "../interchange"
 
 // ── Domain meta ──────────────────────────────────────────────────────
 
 const DOMAIN: Record<Category, {
   icon: React.ElementType
-  domainKey: "anime" | "food" | "music"
+  domainKey: "anime" | "music"
   label: string
 }> = {
   anime: {
     icon:     Tv,
     domainKey: "anime",
     label:    "Anime",
-  },
-  restaurant: {
-    icon:     UtensilsCrossed,
-    domainKey: "food",
-    label:    "Food",
   },
   music: {
     icon:     Music,
@@ -135,12 +130,9 @@ function SignalCard({
   meta: typeof DOMAIN[Category]
   onNavigate: (page: PageId) => void
 }) {
-  const accent = "#A1A1AA"
-
   const handleClick = () => {
-    if (category === "anime")      onNavigate("anime")
-    else if (category === "restaurant") onNavigate("restaurants")
-    else                           onNavigate("music")
+    if (category === "anime") onNavigate("anime")
+    else                      onNavigate("music")
   }
 
   return (
@@ -201,8 +193,7 @@ function SignalCard({
 
 // ── Skeleton ─────────────────────────────────────────────────────────
 
-function SignalCardSkeleton({ category }: { category: Category }) {
-  const meta = DOMAIN[category]
+function SignalCardSkeleton({ category: _category }: { category: Category }) {
   return (
     <div className="flex gap-4 overflow-x-auto overflow-y-hidden scrollbar-hide">
       {Array.from({ length: 5 }).map((_, i) => (
@@ -231,13 +222,12 @@ function SignalCardSkeleton({ category }: { category: Category }) {
 function ErrorState({
   message,
   onRetry,
-  category,
+  category: _category,
 }: {
   message: string
   onRetry: () => void
   category: Category
 }) {
-  const meta = DOMAIN[category]
   const color = "#A1A1AA"
   return (
     <Card className="flex items-center gap-3 p-3">
@@ -261,10 +251,6 @@ const EMPTY_COPY: Record<Category, { title: string; description: string; action?
     title:       "No anime signals yet",
     description: "Connect AniList or like a few anime to get recommendations",
     action:      "Browse Anime",
-  },
-  restaurant: {
-    title:       "No food signals yet",
-    description: "Like a spot nearby to build your culinary signal.",
   },
   music: {
     title:       "No music signals yet",
@@ -313,9 +299,8 @@ function EmptyState({
         window.location.href = api.anilist.loginUrl
       }
     } else {
-      if (category === "anime")      onNavigate("anime")
-      else if (category === "restaurant") onNavigate("restaurants")
-      else                           onNavigate("music")
+      if (category === "anime") onNavigate("anime")
+      else                      onNavigate("music")
     }
   }
 

@@ -1,5 +1,5 @@
 import type { Domain } from "../../tokens"
-import { domainColor, domainAlpha, inkAlpha, fontFamily, colors } from "../../tokens"
+import { domainColor, domainAlpha, fontFamily } from "../../tokens"
 
 interface ConnectionBadgeProps {
   /** True if the service is connected */
@@ -44,7 +44,8 @@ export function ConnectionBadge({
           cy={size / 2}
           r={r}
           fill="none"
-          stroke={inkAlpha(0.08)}
+          stroke="currentColor"
+          className="text-black/[0.08] dark:text-white/[0.12]"
           strokeWidth={strokeW}
         />
         {/* Connected progress ring */}
@@ -68,11 +69,12 @@ export function ConnectionBadge({
       </svg>
       {letter && (
         <span
+          className={connected ? "" : "text-[#71717A] dark:text-[#A1A1AA]"}
           style={{
             fontSize: size * 0.45,
             fontFamily: fontFamily.mono,
             fontWeight: 700,
-            color: connected ? accent : colors.interchange,
+            color: connected ? accent : undefined,
             lineHeight: 1,
             position: "relative",
             zIndex: 10,

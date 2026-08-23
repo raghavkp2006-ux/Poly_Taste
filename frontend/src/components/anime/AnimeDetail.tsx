@@ -278,7 +278,7 @@ export function AnimeDetail({
 
 function Section({
   title,
-  accent,
+  accent: _accent,
   children,
 }: {
   title: string

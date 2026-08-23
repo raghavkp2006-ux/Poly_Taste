@@ -2,7 +2,6 @@ import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
-import { colors, inkAlpha, paperAlpha } from "../../tokens"
 
 const buttonVariants = cva(
   // Base — matches keyboard focus, transition, disabled
@@ -17,20 +16,22 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Removed hardcoded hex Tailwind classes from variants, handled in inline styles.
         default: [
-          "hover:opacity-90 shadow-sm",
+          "bg-[#18181B] text-[#FAFAFA] dark:bg-[#FAFAFA] dark:text-[#18181B]",
+          "hover:bg-[#27272A] dark:hover:bg-[#E4E4E7]",
+          "shadow-sm",
           "active:scale-[0.97]",
         ].join(" "),
 
         secondary: [
-          "backdrop-blur-sm",
-          "hover:opacity-80 shadow-sm",
+          "bg-[#F4F4F5] text-[#18181B] dark:bg-[#27272A] dark:text-[#FAFAFA]",
+          "hover:bg-[#E4E4E7] dark:hover:bg-[#3F3F46]",
+          "shadow-sm",
           "active:scale-[0.97]",
         ].join(" "),
 
         destructive: [
-          "hover:opacity-90 shadow-sm",
+          "bg-red-600 text-white hover:bg-red-700 shadow-sm",
           "active:scale-[0.97]",
         ].join(" "),
 
@@ -76,35 +77,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, style, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
 
-    // Inline style overrides for variants that used hardcoded hexes in Tailwind
-    let variantStyles: React.CSSProperties = {}
-    if (variant === "default" || !variant) {
-      variantStyles = {
-        backgroundColor: colors.ink,
-        color: colors.paper,
-        border: `1px solid ${inkAlpha(0.1)}`,
-      }
-    } else if (variant === "secondary") {
-      variantStyles = {
-        backgroundColor: paperAlpha(0.6),
-        color: colors.ink,
-        border: `1px solid ${paperAlpha(0.8)}`,
-      }
-    } else if (variant === "destructive") {
-      variantStyles = {
-        backgroundColor: colors.error,
-        color: colors.paper,
-      }
-    } else if (variant === "outline") {
-      variantStyles = {}
-    } else if (variant === "ghost") {
-      variantStyles = {}
-    }
-
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
-        style={{ ...variantStyles, ...style }}
+        style={style}
         ref={ref}
         {...props}
       />

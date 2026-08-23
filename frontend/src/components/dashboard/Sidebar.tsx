@@ -2,8 +2,8 @@ import { cn } from "@/lib/utils"
 import {
   Home,
   Tv,
-  UtensilsCrossed,
   Music,
+  Compass,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -14,7 +14,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion"
 import type { PageId } from "../../types"
 import { api } from "../../api"
-import { colors, domainColor, domainAlpha, fontFamily } from "../../tokens"
+import { domainColor, domainAlpha, fontFamily } from "../../tokens"
 import type { Domain } from "../../tokens"
 import { ConnectionBadge } from "../interchange"
 
@@ -27,9 +27,9 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: "home",        label: "Home",        icon: Home,            color: "#A1A1AA" },
-  { id: "anime",       label: "Anime",        icon: Tv,              color: domainColor.anime },
-  { id: "restaurants", label: "Food",         icon: UtensilsCrossed, color: domainColor.food },
-  { id: "music",       label: "Music",        icon: Music,           color: domainColor.music },
+  { id: "anime",       label: "Anime",        icon: Tv,              color: "#4F9C8C" },
+  { id: "music",       label: "Music",        icon: Music,           color: "#E8553F" },
+  { id: "places",      label: "Places",       icon: Compass,         color: "#E3A857" },
   { id: "profile",     label: "Profile",      icon: Fingerprint,     color: "#3ED6C4" },
   { id: "settings",    label: "Settings",     icon: Settings,        color: "#A1A1AA" },
 ]
@@ -46,13 +46,11 @@ interface SidebarProps {
 function ConnectionItem({
   label,
   connected,
-  color,
   domain,
   onClick
 }: {
   label: string
   connected: boolean
-  color: string
   domain: Domain
   onClick: () => void
 }) {
@@ -250,7 +248,6 @@ export function Sidebar({
                 <ConnectionItem
                   label="Spotify"
                   connected={connections.spotify}
-                  color="#18181B"
                   domain="music"
                   onClick={() => {
                     if (!connections.spotify) window.location.href = api.auth.loginUrl
@@ -259,7 +256,6 @@ export function Sidebar({
                 <ConnectionItem
                   label="AniList"
                   connected={connections.anilist}
-                  color="#18181B"
                   domain="anime"
                   onClick={() => {
                     if (!connections.anilist) window.location.href = api.anilist.loginUrl

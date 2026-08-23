@@ -8,13 +8,11 @@ import { Hero } from "../blocks/hero"
 import { ConvergenceHalo } from "./ConvergenceHalo"
 import {
   mockAnimeRecommendations,
-  mockRestaurantRecommendations,
   mockMusicRecommendations,
   mockRecentItems,
   mockActivity,
 } from "./mockData"
 import type { Recommendation, RecentItem, ActivityItem, Category, PageId } from "../../types"
-import { colors, fontFamily } from "../../tokens"
 import { Card } from "../interchange"
 
 // ── Hook: fetch with mock fallback ───────────────────────────────────
@@ -62,13 +60,11 @@ interface DashboardHomeProps {
 
 export function DashboardHome({ userName, onLogout, onNavigate, connections }: DashboardHomeProps) {
   const fetchAnime       = useCallback(() => api.anime.getDashboardRecommendations(), [])
-  const fetchRestaurants = useCallback(() => api.recommendations.getByCategory("restaurant"), [])
   const fetchMusic       = useCallback(() => api.recommendations.getByCategory("music"), [])
   const fetchRecent      = useCallback(() => api.recommendations.getRecent(), [])
   const fetchActivity    = useCallback(() => api.recommendations.getActivity(), [])
 
   const anime       = useFetchWithFallback<Recommendation[]>(fetchAnime,       mockAnimeRecommendations)
-  const restaurants = useFetchWithFallback<Recommendation[]>(fetchRestaurants,  mockRestaurantRecommendations)
   const music       = useFetchWithFallback<Recommendation[]>(fetchMusic,        mockMusicRecommendations)
   const recent      = useFetchWithFallback<RecentItem[]>(fetchRecent,           mockRecentItems)
   const activity    = useFetchWithFallback<ActivityItem[]>(fetchActivity,       mockActivity)
@@ -79,7 +75,6 @@ export function DashboardHome({ userName, onLogout, onNavigate, connections }: D
     isConnected: boolean
   }[] = [
     { category: "anime",      state: anime,       isConnected: connections?.anilist ?? true },
-    { category: "restaurant", state: restaurants, isConnected: true },
     { category: "music",      state: music,       isConnected: connections?.spotify ?? true },
   ]
 
@@ -105,19 +100,13 @@ export function DashboardHome({ userName, onLogout, onNavigate, connections }: D
               .
             </span>
           }
-          subtitle="Discover your next obsession — personalized anime, culinary gems, and fresh tracks, all tuned to your taste."
+          subtitle="Discover your next obsession — personalized anime and fresh tracks, all tuned to your taste."
           actions={[
             {
               label: "Explore Anime",
               href: "#",
               accentColor: "#2563EB",
               onClick: (e) => { e.preventDefault(); onNavigate("anime") },
-            },
-            {
-              label: "Find Food",
-              href: "#",
-              accentColor: "#2563EB",
-              onClick: (e) => { e.preventDefault(); onNavigate("restaurants") },
             },
             {
               label: "Discover Music",

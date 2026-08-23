@@ -100,7 +100,7 @@ export { Hero }
 
 // ── Domain pill ───────────────────────────────────────────────────────
 
-function DomainPill({ label, color }: { label: string; color: string }) {
+function DomainPill({ label, color: _color }: { label: string; color?: string }) {
   return (
     <span
       className="text-[10px] font-mono uppercase tracking-widest px-2.5 py-0.5 rounded-full text-[#71717A] dark:text-[#A1A1AA] bg-transparent border border-[#E4E4E7] dark:border-[#27272A] transition-colors duration-150 ease-out"
@@ -114,8 +114,6 @@ function DomainPill({ label, color }: { label: string; color: string }) {
 
 function DomainButton({ action }: { action: HeroAction }) {
   const { accentColor, className, onClick, href, label, variant = "outline" } = action
-
-  const accentStyle = undefined
 
   return (
     <Button

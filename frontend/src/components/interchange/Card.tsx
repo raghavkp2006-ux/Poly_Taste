@@ -10,7 +10,7 @@ interface CardProps {
 
 export function Card({
   children,
-  domain,
+  domain: _domain,
   className = "",
   style,
   onClick,

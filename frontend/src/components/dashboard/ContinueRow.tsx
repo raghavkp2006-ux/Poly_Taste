@@ -1,19 +1,10 @@
-import { Clock, Tv, UtensilsCrossed, Music, History } from "lucide-react"
+import { Clock, Tv, Music, History } from "lucide-react"
 import { motion } from "framer-motion"
 import type { RecentItem, Category } from "../../types"
-import { Card, LineRail } from "../interchange"
-import { domainColor, inkAlpha } from "../../tokens"
-import type { Domain } from "../../tokens"
-
-const CATEGORY_DOMAIN_MAP: Record<Category, Domain> = {
-  anime:      "anime",
-  restaurant: "food",
-  music:      "music",
-}
+import { Card } from "../interchange"
 
 const CATEGORY_ICONS: Record<Category, React.ElementType> = {
   anime:      Tv,
-  restaurant: UtensilsCrossed,
   music:      Music,
 }
 
@@ -81,9 +72,7 @@ export function ContinueRow({ items, loading }: ContinueRowProps) {
 }
 
 function RecentCard({ item, index }: { item: RecentItem; index: number }) {
-  const Icon   = CATEGORY_ICONS[item.category]
-  const domain = CATEGORY_DOMAIN_MAP[item.category]
-  const accent = "#A1A1AA"
+  const Icon = CATEGORY_ICONS[item.category]
 
   return (
     <motion.div

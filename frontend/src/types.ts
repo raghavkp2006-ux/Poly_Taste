@@ -1,6 +1,6 @@
 // ── Recommendation types ────────────────────────────────────────────
 
-export type Category = "anime" | "restaurant" | "music"
+export type Category = "anime" | "music"
 
 export interface Recommendation {
   id: string
@@ -10,6 +10,27 @@ export interface Recommendation {
   /** Match score 0–100 */
   score: number
   category: Category
+}
+
+// ── Tourist Spot types ──────────────────────────────────────────────
+
+export interface TouristSpot {
+  place_id: string
+  name: string
+  category: string
+  description?: string | null
+  price_tier: "free" | "paid" | "premium" | string
+  lat: number
+  lng: number
+  city: string
+}
+
+export interface SpotFeedbackResponse {
+  status: string
+  user_id: string
+  place_id: string
+  rating: number
+  tag?: string | null
 }
 
 // ── Recently viewed ─────────────────────────────────────────────────
@@ -40,4 +61,4 @@ export interface ActivityItem {
 
 // ── Navigation ──────────────────────────────────────────────────────
 
-export type PageId = "home" | "anime" | "restaurants" | "music" | "profile" | "settings"
+export type PageId = "home" | "anime" | "music" | "places" | "profile" | "settings"

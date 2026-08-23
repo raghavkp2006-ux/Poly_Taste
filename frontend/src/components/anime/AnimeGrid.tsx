@@ -13,12 +13,7 @@ export function AnimeGrid({
   if (!animes || animes.length === 0) {
     return (
       <div
-        className="text-center py-10 rounded-xl"
-        style={{
-          color: "#7B8794",
-          background: "rgba(18,24,31,0.5)",
-          border: "1px solid rgba(255,255,255,0.05)",
-        }}
+        className="text-center py-10 rounded-xl bg-white dark:bg-[#18181B] border border-[#E4E4E7] dark:border-[#27272A] text-[#71717A] dark:text-[#A1A1AA] transition-colors duration-150 ease-out"
       >
         No anime found.
       </div>
@@ -129,8 +124,7 @@ function AnimeSignalCard({
         </h4>
         {genres.length > 0 && (
           <p
-            className="text-[9px] font-sans line-clamp-1"
-            style={{ color: "#7B8794" }}
+            className="text-[9px] font-sans line-clamp-1 text-[#71717A] dark:text-[#A1A1AA] transition-colors duration-150 ease-out"
           >
             {genres.slice(0, 2).join(" · ")}
           </p>

@@ -13,36 +13,9 @@ import { colors, inkAlpha, paperAlpha, domainColor, domainAlpha, CARD_SURFACE } 
 export { Button, buttonVariants } from "./ui/button"
 export type { ButtonProps } from "./ui/button"
 
-// ── Input ────────────────────────────────────────────────────────────
-
-export const Input = React.forwardRef<
-  HTMLInputElement,
-  React.InputHTMLAttributes<HTMLInputElement>
->(({ className, type, ...props }, ref) => {
-  return (
-    <input
-      type={type}
-      className={cn(
-        "flex h-10 w-full rounded-lg",
-        "border px-3 py-2 text-sm font-sans",
-        "placeholder:text-muted-foreground",
-        "transition-colors duration-200",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-        "disabled:cursor-not-allowed disabled:opacity-50",
-        "file:border-0 file:bg-transparent file:text-sm file:font-medium",
-        className
-      )}
-      style={{
-        backgroundColor: inkAlpha(0.6),
-        borderColor: inkAlpha(0.1),
-        color: colors.ink,
-      }}
-      ref={ref}
-      {...props}
-    />
-  )
-})
-Input.displayName = "Input"
+// ── Re-export canonical Input ────────────────────────────────────────
+export { Input } from "./ui/input"
+export type { InputProps } from "./ui/input"
 
 // ── Card (glass-card variant) ─────────────────────────────────────────
 
@@ -194,8 +167,7 @@ export function Switch({ checked, onCheckedChange }: any) {
 export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("animate-pulse rounded-lg", className)}
-      style={{ backgroundColor: inkAlpha(0.06) }}
+      className={cn("animate-pulse rounded-lg bg-black/10 dark:bg-white/10 transition-colors duration-150 ease-out", className)}
       {...props}
     />
   )
@@ -204,7 +176,7 @@ export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivEl
 // ── Badge ─────────────────────────────────────────────────────────────
 
 interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: "default" | "secondary" | "outline" | "success" | "music" | "anime" | "food"
+  variant?: "default" | "secondary" | "outline" | "success" | "music" | "anime"
 }
 
 export function Badge({ className, variant = "default", ...props }: BadgeProps) {
@@ -215,7 +187,6 @@ export function Badge({ className, variant = "default", ...props }: BadgeProps) 
     success:   { backgroundColor: "rgba(52,211,153,0.1)", color: "#10B981", border: "1px solid rgba(52,211,153,0.2)" },
     music:     { backgroundColor: domainAlpha("music", 0.15), color: domainColor.music, border: `1px solid ${domainAlpha("music", 0.25)}` },
     anime:     { backgroundColor: domainAlpha("anime", 0.15), color: domainColor.anime, border: `1px solid ${domainAlpha("anime", 0.25)}` },
-    food:      { backgroundColor: domainAlpha("food", 0.15), color: domainColor.food, border: `1px solid ${domainAlpha("food", 0.25)}` },
   }
 
   return (

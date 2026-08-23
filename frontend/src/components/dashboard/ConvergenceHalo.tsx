@@ -21,13 +21,13 @@ export function ConvergenceHalo({
   const chartData = data || [
     { label: "Music", value: 85, maxValue: 100 },
     { label: "Anime", value: 60, maxValue: 100 },
-    { label: "Food", value: 35, maxValue: 100 },
+    { label: "Places", value: 50, maxValue: 100 },
   ]
 
   return (
     <div
       className="relative flex flex-col items-center gap-6 py-8 w-full"
-      aria-label="Taste Convergence — where music, anime, and food intersect"
+      aria-label="Taste Convergence — where music, anime, and places intersect"
     >
       {/* Label */}
       <div className="text-center space-y-1">
@@ -51,10 +51,18 @@ export function ConvergenceHalo({
           {chartData.map((item, index) => (
             <Ring key={item.label} index={index} />
           ))}
-          <RingCenter
-            defaultLabel="Convergence"
-            formatValue={() => (score !== undefined ? `${Math.round(score)}` : "...")}
-          />
+          <RingCenter defaultLabel="Convergence">
+            {({ isHovered, value, label }) => (
+              <div className="flex flex-col items-center justify-center">
+                <span className="text-2xl font-bold font-mono">
+                  {isHovered ? `${Math.round(value)}%` : (score !== undefined ? `${Math.round(score)}%` : "...")}
+                </span>
+                <span className="text-xs text-muted-foreground font-sans">
+                  {isHovered ? label : "Convergence"}
+                </span>
+              </div>
+            )}
+          </RingCenter>
         </RingChart>
       </div>
 
@@ -65,7 +73,7 @@ export function ConvergenceHalo({
       >
         <LegendItem color="var(--chart-1)" label="Music" />
         <LegendItem color="var(--chart-2)" label="Anime" />
-        <LegendItem color="var(--chart-3)" label="Food" />
+        <LegendItem color="#E3A857" label="Places" />
       </div>
     </div>
   )
