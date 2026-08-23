@@ -2,14 +2,13 @@
 services/taste_profile.py — Cross-module taste profile engine.
 
 compute_taste_profile(user_id, spotify_token=None) aggregates signal from:
-  1. Spotify   — weighted genre profile from top artists (reuses compute_genre_profile
-                 from routers.spotify — no duplication)
-  2. Anime     — genres of explicitly liked anime entries
-  3. Restaurants — types/cuisines of explicitly liked restaurants
+  1. Spotify — weighted genre profile from top artists (reuses compute_genre_profile
+               from routers.spotify — no duplication)
+  2. Anime   — genres of explicitly liked anime entries and AniList watch history
 
-The three signal vectors are merged into a single {keyword: float} dict.
+The signal vectors are merged into a single {keyword: float} dict.
 A genre crosswalk maps Spotify music genres to semantically related anime
-genres, and music/anime genres to restaurant cuisines.
+genres.
 """
 
 from __future__ import annotations
@@ -48,35 +47,62 @@ GENRE_CROSSWALK: Dict[str, List[str]] = {
 }
 
 # ---------------------------------------------------------------------------
-# Cuisine crosswalk: Music/Anime genre → Restaurant Cuisine types
+# Tourism crosswalk: Music genre / Anime genre → tourist spot categories
 # ---------------------------------------------------------------------------
-CUISINE_CROSSWALK: Dict[str, List[str]] = {
-    # High-energy music/anime → street food, fast casual, spicy
-    "rock": ["meal_takeaway", "bar", "pub", "hamburger_restaurant"],
-    "metal": ["bar", "pub", "mexican_restaurant", "korean_restaurant"],
-    "action": ["meal_takeaway", "fast_food_restaurant", "japanese_restaurant"],
-    "shonen": ["fast_food_restaurant", "japanese_restaurant", "ramen_restaurant"],
-    
-    # Chill/Slice-of-life → cafes, bakeries, cozy spots
-    "jazz": ["cafe", "bakery", "french_restaurant", "wine_bar"],
-    "classical": ["cafe", "french_restaurant", "fine_dining_restaurant"],
-    "slice of life": ["cafe", "bakery", "dessert_shop"],
-    "romance": ["cafe", "italian_restaurant", "french_restaurant"],
-    
-    # Electronic/Sci-fi → modern, fusion, high-end
-    "electronic": ["fusion_restaurant", "bar", "night_club"],
-    "sci-fi": ["fusion_restaurant", "japanese_restaurant"],
-    
-    # Indie/Pop → casual, trendy, vegetarian
-    "indie": ["vegetarian_restaurant", "vegan_restaurant", "cafe"],
-    "pop": ["cafe", "pizza_restaurant", "sushi_restaurant"],
+TOURISM_CROSSWALK: Dict[str, List[str]] = {
+    # High-energy / aggressive genres & action anime lean adventure_outdoor
+    "rock": ["adventure_outdoor"],
+    "metal": ["adventure_outdoor"],
+    "action": ["adventure_outdoor"],
+    "sports": ["adventure_outdoor"],
+    "adventure": ["adventure_outdoor"],
+    "shonen": ["adventure_outdoor"],
+
+    # Ambient / acoustic / chill genres & slice-of-life anime lean chill_scenic
+    "ambient": ["chill_scenic"],
+    "jazz": ["chill_scenic"],
+    "folk": ["chill_scenic", "cultural_historic"],
+    "country": ["chill_scenic"],
+    "slice of life": ["chill_scenic"],
+    "iyashikei": ["chill_scenic"],
+
+    # Pop / dance / electronic genres & idol / music anime lean nightlife
+    "electronic": ["nightlife", "offbeat_indie"],
+    "dance": ["nightlife"],
+    "edm": ["nightlife"],
+    "house": ["nightlife"],
+    "techno": ["nightlife"],
+    "hip hop": ["nightlife", "adventure_outdoor"],
+    "rap": ["nightlife"],
+    "music": ["nightlife"],
+
+    # Classical / indie genres & arthouse / psychological anime lean cultural_historic / offbeat_indie
+    "classical": ["cultural_historic"],
+    "historical": ["cultural_historic"],
+    "indie": ["offbeat_indie", "chill_scenic"],
+    "psychological": ["offbeat_indie"],
+    "sci-fi": ["offbeat_indie"],
+    "mecha": ["offbeat_indie"],
+    "fantasy": ["cultural_historic", "adventure_outdoor"],
+    "dark fantasy": ["offbeat_indie"],
+    "mystery": ["offbeat_indie"],
+    "supernatural": ["offbeat_indie"],
+    "seinen": ["cultural_historic", "offbeat_indie"],
+    "josei": ["cultural_historic"],
+    "drama": ["cultural_historic", "chill_scenic"],
+
+    # Mainstream pop & romance / comedy lean shopping_social
+    "pop": ["shopping_social"],
+    "r&b": ["shopping_social", "chill_scenic"],
+    "romance": ["shopping_social", "chill_scenic"],
+    "comedy": ["shopping_social"],
+    "school": ["shopping_social"],
 }
 
 # Per-source weight multipliers so explicit likes (low volume but intentional)
 # are not drowned out by Spotify's high-volume implicit signal.
 _SPOTIFY_WEIGHT = 1.0   # Spotify profile already normalized to sum ~50
 _ANIME_WEIGHT   = 2.0   # Each explicit anime like contributes 2.0 per genre
-_RESTAURANT_WEIGHT = 2.0  # Restaurant type contributes 2.0 per liked restaurant
 _ANILIST_WEIGHT = 2.0
 
 
@@ -92,28 +118,45 @@ def _fetch_spotify_genre_profile(
 
     Imports compute_genre_profile and normalize_genres directly from
     routers.spotify — no duplication of that logic.
+
+    Falls back to an imported streaming-history profile if the live fetch
+    returns empty (e.g. new account with no listening history yet, or the
+    token is expired and refresh failed silently).
     """
     try:
         from routers.spotify import compute_genre_profile, normalize_genres  # type: ignore[import]
     except ImportError:
         return {}
 
+    profile: Dict[str, float] = {}
     try:
         resp = requests.get(
             "https://api.spotify.com/v1/me/top/artists?limit=50",
             headers={"Authorization": f"Bearer {token}"},
             timeout=6,
         )
-        if resp.status_code != 200:
-            return {}
-        artists = resp.json().get("items", [])
-        # Normalise genres into broad categories (reuses existing logic)
-        for artist in artists:
-            artist["genres"] = normalize_genres(artist.get("genres", []))
-        return compute_genre_profile(artists)
+        if resp.status_code == 200:
+            artists = resp.json().get("items", [])
+            # Normalise genres into broad categories (reuses existing logic)
+            for artist in artists:
+                artist["genres"] = normalize_genres(artist.get("genres", []))
+            profile = compute_genre_profile(artists)
     except Exception as exc:
         print(f"[taste_profile] Spotify fetch error: {exc}")
-        return {}
+
+    # Fallback: if live fetch returned nothing, check for an imported profile
+    if not profile:
+        try:
+            from database import get_spotify_import_profile
+            import json as _json
+            import_data = get_spotify_import_profile(user_id)
+            if import_data and import_data.get("genre_profile_json"):
+                profile = _json.loads(import_data["genre_profile_json"])
+                print(f"[taste_profile] Using imported streaming-history profile for {user_id}")
+        except Exception as exc:
+            print(f"[taste_profile] Import-profile fallback error: {exc}")
+
+    return profile
 
 
 def _anime_genre_signal(user_id: str) -> Dict[str, float]:
@@ -188,11 +231,6 @@ def _anilist_genre_signal(user_id: str) -> Dict[str, float]:
         if score > 0:
             weight = (score / 10.0) * _ANILIST_WEIGHT
         else:
-            # score == 0 means "not yet rated" on AniList — use a reduced
-            # default weight.  Watching/completing is a weaker signal than
-            # an explicit rating, but still meaningful (especially for
-            # users who never rate).  0.5 × _ANILIST_WEIGHT keeps unrated
-            # entries from dominating while ensuring they surface at all.
             weight = 0.5 * _ANILIST_WEIGHT
 
         # Prefer genres from AniList response; fall back to local catalog
@@ -210,68 +248,29 @@ def _anilist_genre_signal(user_id: str) -> Dict[str, float]:
     return profile
 
 
-CUISINE_ALLOWLIST = {
-    "italian_restaurant", "japanese_restaurant", "mexican_restaurant", 
-    "korean_restaurant", "french_restaurant", "fast_food_restaurant", 
-    "ramen_restaurant", "vegetarian_restaurant", "vegan_restaurant", 
-    "sushi_restaurant", "pizza_restaurant", "hamburger_restaurant",
-    "seafood_restaurant", "mediterranean_restaurant", "brunch_restaurant",
-    "dessert_restaurant", "fine_dining_restaurant", "fusion_restaurant",
-    "cafe", "bar", "pub", "wine_bar", "night_club", "bakery", "dessert_shop",
-    "family_restaurant", "meal_takeaway", "coffee_shop", "ice_cream_shop",
-    "thai_restaurant"
-}
-
-def _restaurant_cuisine_signal(user_id: str) -> Dict[str, Any]:
+def _tourism_signal(
+    user_genre_weights: Dict[str, float],
+    user_anime_weights: Dict[str, float],
+) -> Dict[str, float]:
     """
-    Return a cuisine-frequency dict and avg rating/price from the user's liked restaurants.
+    Map user's Spotify genre weights and anime genre weights to tourist spot
+    category weights across the six tourism categories using TOURISM_CROSSWALK.
     """
-    likes = get_likes(user_id, module="restaurants")
-    if not likes:
-        return {"cuisines": {}, "avg_rating": None, "avg_price": None}
-
-    try:
-        from services.google_places_client import get_restaurant_details  # type: ignore[import]
-    except ImportError:
-        return {"cuisines": {}, "avg_rating": None, "avg_price": None}
-
-    cuisines: Dict[str, float] = {}
-    total_rating = 0.0
-    rating_count = 0
-    total_price = 0.0
-    price_count = 0
-
-    for like in likes:
-        place_id = like.get("item_id", "")
-        if not place_id:
-            continue
-        
-        # In a real system, you might cache these directly in the database or use the TTL cache
-        # If the TTL cache misses, this makes network requests! It's okay for prototype/mocked tests.
-        entry = get_restaurant_details(place_id)
-        if not entry:
-            continue
-            
-        for r_type in entry.get("types", []):
-            cat = r_type.lower()
-            if cat in CUISINE_ALLOWLIST:
-                cuisines[cat] = cuisines.get(cat, 0.0) + _RESTAURANT_WEIGHT
-
-        r = entry.get("rating")
-        if r is not None:
-            total_rating += r
-            rating_count += 1
-            
-        p = entry.get("price_level")
-        if p is not None:
-            total_price += p
-            price_count += 1
-
-    return {
-        "cuisines": cuisines,
-        "avg_rating": total_rating / rating_count if rating_count > 0 else None,
-        "avg_price": total_price / price_count if price_count > 0 else None,
+    crosswalk_tourism: Dict[str, float] = {
+        "adventure_outdoor": 0.0,
+        "cultural_historic": 0.0,
+        "nightlife": 0.0,
+        "chill_scenic": 0.0,
+        "shopping_social": 0.0,
+        "offbeat_indie": 0.0,
     }
+    combined = _merge_profiles(user_genre_weights, user_anime_weights)
+    for genre, weight in combined.items():
+        categories = TOURISM_CROSSWALK.get(genre.lower(), [])
+        for cat in categories:
+            crosswalk_tourism[cat] = crosswalk_tourism.get(cat, 0.0) + weight
+
+    return crosswalk_tourism
 
 
 def _merge_profiles(*profiles: Dict[str, float]) -> Dict[str, float]:
@@ -305,10 +304,12 @@ def compute_taste_profile(
     Returns
     -------
     dict with keys:
-      "profile"        — merged {genre/keyword: float} dict, sorted by weight desc
-      "breakdown"      — per-source sub-profiles for debugging
-      "crosswalk_anime" — anime genre keywords derived from Spotify genres via
-                          GENRE_CROSSWALK (used by the ?personalize=true boost)
+      "profile"          — merged {genre/keyword: float} dict, sorted by weight desc
+      "breakdown"        — per-source sub-profiles for debugging
+      "crosswalk_anime"   — anime genre keywords derived from Spotify genres via
+                            GENRE_CROSSWALK (used by the ?personalize=true boost)
+      "crosswalk_tourism" — tourist spot category weights derived from combined
+                            music and anime genres via TOURISM_CROSSWALK
     """
     # --- Gather per-source signals ---
     spotify_profile: Dict[str, float] = {}
@@ -318,13 +319,8 @@ def compute_taste_profile(
 
     anime_profile = _anime_genre_signal(user_id)
     anilist_profile = _anilist_genre_signal(user_id)
-    
-    restaurant_data = _restaurant_cuisine_signal(user_id)
-    restaurant_profile = restaurant_data.get("cuisines", {})
-    avg_price = restaurant_data.get("avg_price")
-    avg_rating = restaurant_data.get("avg_rating")
 
-    merged = _merge_profiles(spotify_profile, anime_profile, anilist_profile, restaurant_profile)
+    merged = _merge_profiles(spotify_profile, anime_profile, anilist_profile)
 
     # --- Build anime crosswalk from Spotify genres ---
     crosswalk_anime: Dict[str, float] = {}
@@ -333,16 +329,12 @@ def compute_taste_profile(
             crosswalk_anime[anime_genre] = (
                 crosswalk_anime.get(anime_genre, 0.0) + weight
             )
-            
-    # --- Build restaurants crosswalk from Spotify + Anime genres ---
-    crosswalk_restaurants: Dict[str, float] = {}
-    # Incorporate spotify and anime into the cuisine crosswalk
-    combined_signal = _merge_profiles(spotify_profile, anime_profile, anilist_profile)
-    for genre, weight in combined_signal.items():
-        for cuisine in CUISINE_CROSSWALK.get(genre, []):
-            crosswalk_restaurants[cuisine] = (
-                crosswalk_restaurants.get(cuisine, 0.0) + weight
-            )
+
+    # --- Build tourism crosswalk from combined music + anime signals ---
+    crosswalk_tourism = _tourism_signal(
+        spotify_profile,
+        _merge_profiles(anime_profile, anilist_profile),
+    )
 
     # Fetch AniList watched list with titles
     anilist_watched = []
@@ -375,17 +367,11 @@ def compute_taste_profile(
             "spotify": dict(sorted(spotify_profile.items(), key=lambda x: x[1], reverse=True)),
             "anime": anime_profile,
             "anilist": anilist_profile,
-            "restaurants": restaurant_profile,
-        },
-        "restaurant_features": {
-            "avg_rating": avg_rating,
-            "avg_price_level": avg_price
         },
         "anilist_watched": anilist_watched,
         "crosswalk_anime": crosswalk_anime,
-        "crosswalk_restaurants": crosswalk_restaurants,
+        "crosswalk_tourism": crosswalk_tourism,
     }
-
 
 
 def get_anime_boost_map(user_id: str, spotify_token: Optional[str] = None) -> Dict[str, float]:
@@ -404,21 +390,6 @@ def get_anime_boost_map(user_id: str, spotify_token: Optional[str] = None) -> Di
 
     # Also directly boost genres of AniList anime
     for genre, weight in profile_data["breakdown"].get("anilist", {}).items():
-        boost_map[genre] = boost_map.get(genre, 0.0) + weight
-
-    return boost_map
-
-
-def get_restaurant_boost_map(user_id: str, spotify_token: Optional[str] = None) -> Dict[str, float]:
-    """
-    Return a {cuisine_lower: boost_weight} dict for use in
-    routers/restaurants.py's ?personalize=true re-ranking.
-    """
-    profile_data = compute_taste_profile(user_id, spotify_token=spotify_token)
-    boost_map = dict(profile_data.get("crosswalk_restaurants", {}))
-
-    # Also directly boost cuisines of liked restaurants
-    for genre, weight in profile_data.get("breakdown", {}).get("restaurants", {}).items():
         boost_map[genre] = boost_map.get(genre, 0.0) + weight
 
     return boost_map

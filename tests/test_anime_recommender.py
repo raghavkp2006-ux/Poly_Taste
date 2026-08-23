@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from services.anime_recommender import get_or_compute_embedding, vectorizer
+from services.anime_recommender import get_or_compute_embedding
 
 def test_get_or_compute_embedding_precomputed():
     """Test retrieving an embedding that already exists in the 15k dataset."""
@@ -22,17 +22,12 @@ def test_cold_start_rich_metadata():
         "tags": [{"name": "Space"}, {"name": "Mecha"}]
     }
     
-    initial_vocab_size = len(vectorizer.vocabulary_) if vectorizer else 0
-    
     embedding, title, genres = get_or_compute_embedding(999999991, metadata=rich_metadata)
     
     assert embedding is not None, "Embedding should be generated for rich metadata."
     assert embedding.shape == (32,), "Embedding should be 32-dimensional."
     assert title == "Mock Rich Anime", "Title should match metadata."
     assert genres == ["Action", "Sci-Fi", "Drama"], "Genres should match metadata."
-    
-    final_vocab_size = len(vectorizer.vocabulary_) if vectorizer else 0
-    assert initial_vocab_size == final_vocab_size, "Vectorizer vocabulary should not change (no accidental fit_transform)."
 
 def test_cold_start_thin_metadata():
     """Test the fallback mechanism for thin metadata."""

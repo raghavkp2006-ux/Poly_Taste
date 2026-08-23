@@ -33,8 +33,6 @@ Local-dev mode only (None in Lambda/DynamoDB mode):
   SpotifyUser     — SQLAlchemy ORM model
   User            — SQLAlchemy ORM model (Google identity)
   UserLike        — SQLAlchemy ORM model
-  Restaurant      — SQLAlchemy ORM model
-  Review          — SQLAlchemy ORM model
   Base            — declarative_base (for create_all)
 """
 
@@ -66,7 +64,7 @@ if not _use_local:
 # LOCAL mode — SQLite via SQLAlchemy
 # ---------------------------------------------------------------------------
 if _use_local:
-    from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, UniqueConstraint, ForeignKey, text
+    from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, UniqueConstraint, ForeignKey, text, func
     from sqlalchemy.orm import declarative_base, sessionmaker, relationship
     from datetime import datetime, timezone
 
@@ -75,6 +73,7 @@ if _use_local:
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "spotify_tokens.db"),
     )
     _engine = create_engine(f"sqlite:///{_DB_PATH}", connect_args={"check_same_thread": False})
+    engine = _engine
     Base = declarative_base()
 
     class SpotifyUser(Base):  # type: ignore[valid-type]
@@ -143,25 +142,6 @@ if _use_local:
                 "liked_at": self.liked_at,
             }
 
-    class Restaurant(Base):  # type: ignore[valid-type]
-        __tablename__ = "restaurants"
-        id = Column(Integer, primary_key=True, autoincrement=True)
-        place_id = Column(String, unique=True, nullable=False, index=True)
-        name = Column(String, nullable=False)
-        vicinity = Column(String, nullable=True)
-        rating = Column(Float, nullable=True)
-        types = Column(String, nullable=True)
-
-    class Review(Base):  # type: ignore[valid-type]
-        __tablename__ = "restaurant_reviews"
-        id = Column(Integer, primary_key=True, autoincrement=True)
-        user_id = Column(String, nullable=False, index=True)
-        place_id = Column(String, nullable=False, index=True)
-        place_name = Column(String, nullable=False)
-        place_types = Column(String, nullable=True) # comma separated
-        rating = Column(Integer, nullable=False)
-        comment = Column(String, nullable=True)
-        created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     class AniListUser(Base):  # type: ignore[valid-type]
         """ORM model for local-dev SQLite AniList user-token storage."""
@@ -183,6 +163,59 @@ if _use_local:
                 "connected_at": self.connected_at.isoformat() if self.connected_at else None,
             }
 
+    class SpotifyImportProfile(Base):  # type: ignore[valid-type]
+        """ORM model for imported Spotify streaming history genre profiles."""
+
+        __tablename__ = "spotify_import_profiles"
+
+        user_id = Column(String, primary_key=True, index=True)
+        genre_profile_json = Column(String, nullable=False)   # JSON {genre: weight}
+        artist_summary_json = Column(String, nullable=True)   # JSON top-50 artists
+        total_plays = Column(Integer, nullable=True)
+        unique_artists = Column(Integer, nullable=True)
+        imported_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+        def to_dict(self) -> Dict[str, Any]:
+            return {
+                "user_id": self.user_id,
+                "genre_profile_json": self.genre_profile_json,
+                "artist_summary_json": self.artist_summary_json,
+                "total_plays": self.total_plays,
+                "unique_artists": self.unique_artists,
+                "imported_at": self.imported_at.isoformat() if self.imported_at else None,
+            }
+
+    class TouristSpot(Base):
+        __tablename__ = "tourist_spots"
+
+        place_id = Column(String, primary_key=True)
+        name = Column(String, nullable=False)
+        category = Column(String, nullable=False, index=True)
+        description = Column(String, nullable=True)
+        price_tier = Column(String, nullable=False)
+        lat = Column(Float, nullable=False)
+        lng = Column(Float, nullable=False)
+        city = Column(String, nullable=False, default="Chennai")
+
+    class UserSpotFeedback(Base):
+        __tablename__ = "user_spot_feedback"
+
+        id = Column(Integer, primary_key=True, autoincrement=True)
+        user_id = Column(String, ForeignKey("users.google_sub"), nullable=False, index=True)
+        place_id = Column(String, ForeignKey("tourist_spots.place_id"), nullable=False, index=True)
+        rating = Column(Integer, nullable=False)
+        tag = Column(String, nullable=True)
+        created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    TOURIST_SPOT_CATEGORIES = [
+        "adventure_outdoor",
+        "cultural_historic",
+        "nightlife",
+        "chill_scenic",
+        "shopping_social",
+        "offbeat_indie",
+    ]
+
     Base.metadata.create_all(bind=_engine)
 
     # Inline schema migration to add new columns to existing DB if missing
@@ -193,6 +226,8 @@ if _use_local:
             conn.execute(text("ALTER TABLE spotify_users ADD COLUMN spotify_account_id TEXT"))
         if "spotify_display_name" not in columns:
             conn.execute(text("ALTER TABLE spotify_users ADD COLUMN spotify_display_name TEXT"))
+        conn.execute(text("DROP TABLE IF EXISTS restaurants"))
+        conn.execute(text("DROP TABLE IF EXISTS restaurant_reviews"))
 
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
 
@@ -419,6 +454,52 @@ if _use_local:
         finally:
             db.close()
 
+    def upsert_spotify_import_profile(
+        user_id: str,
+        genre_profile_json: str,
+        artist_summary_json: Optional[str] = None,
+        total_plays: Optional[int] = None,
+        unique_artists: Optional[int] = None,
+    ) -> None:
+        """Store or update an imported Spotify streaming history genre profile."""
+        db = SessionLocal()
+        try:
+            row = db.query(SpotifyImportProfile).filter(
+                SpotifyImportProfile.user_id == user_id
+            ).first()
+            if row:
+                row.genre_profile_json = genre_profile_json
+                row.artist_summary_json = artist_summary_json
+                row.total_plays = total_plays
+                row.unique_artists = unique_artists
+                row.imported_at = datetime.now(timezone.utc)
+            else:
+                row = SpotifyImportProfile(
+                    user_id=user_id,
+                    genre_profile_json=genre_profile_json,
+                    artist_summary_json=artist_summary_json,
+                    total_plays=total_plays,
+                    unique_artists=unique_artists,
+                )
+                db.add(row)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"[database] upsert_spotify_import_profile({user_id}): {e}")
+        finally:
+            db.close()
+
+    def get_spotify_import_profile(user_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve the imported Spotify genre profile for a user, if any."""
+        db = SessionLocal()
+        try:
+            row = db.query(SpotifyImportProfile).filter(
+                SpotifyImportProfile.user_id == user_id
+            ).first()
+            return row.to_dict() if row else None
+        finally:
+            db.close()
+
 # ---------------------------------------------------------------------------
 # AWS / Lambda mode — DynamoDB (unchanged from original)
 # ---------------------------------------------------------------------------
@@ -431,11 +512,21 @@ else:
     SpotifyUser = None   # type: ignore[assignment]
     User = None          # type: ignore[assignment]
     UserLike = None      # type: ignore[assignment]
-    Restaurant = None    # type: ignore[assignment]
-    Review = None        # type: ignore[assignment]
     AniListUser = None   # type: ignore[assignment]
+    SpotifyImportProfile = None  # type: ignore[assignment]
+    TouristSpot = None   # type: ignore[assignment]
+    UserSpotFeedback = None  # type: ignore[assignment]
     Base = None          # type: ignore[assignment]
     get_db = None        # type: ignore[assignment]
+
+    TOURIST_SPOT_CATEGORIES = [
+        "adventure_outdoor",
+        "cultural_historic",
+        "nightlife",
+        "chill_scenic",
+        "shopping_social",
+        "offbeat_indie",
+    ]
 
     DYNAMODB_TABLE_NAME = os.getenv("DYNAMODB_TABLE_NAME", "spotify_users")
     USER_LIKES_TABLE_NAME = os.getenv("USER_LIKES_TABLE_NAME", "user_likes")
@@ -596,3 +687,18 @@ else:
             table.put_item(Item=item)
         except ClientError as e:
             print(f"[database] upsert_anilist_user({user_id}): {e}")
+
+    def upsert_spotify_import_profile(
+        user_id: str,
+        genre_profile_json: str,
+        artist_summary_json: Optional[str] = None,
+        total_plays: Optional[int] = None,
+        unique_artists: Optional[int] = None,
+    ) -> None:
+        """Store imported Spotify profile — DynamoDB stub (not yet implemented)."""
+        print(f"[database] upsert_spotify_import_profile: DynamoDB not implemented")
+
+    def get_spotify_import_profile(user_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve imported Spotify profile — DynamoDB stub (not yet implemented)."""
+        print(f"[database] get_spotify_import_profile: DynamoDB not implemented")
+        return None

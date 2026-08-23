@@ -5,8 +5,6 @@ Tests for the cross-module taste profile feature:
   - services/taste_profile.py :: compute_taste_profile, get_anime_boost_map
   - POST /anime/{mal_id}/like
   - DELETE /anime/{mal_id}/like
-  - POST /restaurants/{place_id}/like
-  - DELETE /restaurants/{place_id}/like
   - GET /taste-profile (requires auth)
   - GET /anime/{mal_id}/recommend?personalize=true
 
@@ -92,7 +90,6 @@ def test_compute_profile_spotify_only():
 
     assert "rock" in result["profile"] or "metal" in result["profile"]
     assert result["breakdown"]["anime"] == {}
-    assert result["breakdown"]["restaurants"] == {}
 
 
 def test_compute_profile_anime_likes_only():
@@ -119,57 +116,28 @@ def test_compute_profile_anime_likes_only():
     assert result["breakdown"]["spotify"] == {}
 
 
-def test_compute_profile_restaurant_likes_only():
-    """No Spotify token, restaurant likes → restaurant cuisines in profile."""
-    from services.taste_profile import compute_taste_profile
-
-    restaurant_likes = [
-        {"user_id": "user1", "module": "restaurants", "item_id": "place_1", "liked_at": 0},
-    ]
-
-    def mock_get_likes(user_id, module=None):
-        if module == "restaurants":
-            return restaurant_likes
-        return []
-
-    mock_place = {"place_id": "place_1", "types": ["thai_restaurant"]}
-
-    with patch("services.taste_profile.get_likes", side_effect=mock_get_likes), \
-         patch("services.google_places_client.get_restaurant_details", return_value=mock_place):
-        result = compute_taste_profile("user1", spotify_token=None)
-
-    assert "thai_restaurant" in result["profile"]
-    assert result["breakdown"]["spotify"] == {}
-    assert result["breakdown"]["anime"] == {}
-
-
 def test_compute_profile_combined():
-    """All three sources active → genres from each module present and summed."""
+    """Both sources active → genres from each module present and summed."""
     from services.taste_profile import compute_taste_profile
 
     anime_likes = [{"user_id": "u", "module": "anime", "item_id": "2", "liked_at": 0}]
-    restaurant_likes = [{"user_id": "u", "module": "restaurants", "item_id": "place_2", "liked_at": 0}]
 
     def mock_get_likes(user_id, module=None):
         if module == "anime":   return anime_likes
-        if module == "restaurants":  return restaurant_likes
         return []
 
     mock_artists = [{"id": "a1", "genres": ["pop"]}]
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.json.return_value = {"items": mock_artists}
-    mock_place = {"place_id": "place_2", "types": ["cafe"]}
 
     with patch("services.taste_profile.requests.get", return_value=mock_resp), \
-         patch("services.taste_profile.get_likes", side_effect=mock_get_likes), \
-         patch("services.google_places_client.get_restaurant_details", return_value=mock_place):
+         patch("services.taste_profile.get_likes", side_effect=mock_get_likes):
         result = compute_taste_profile("u", spotify_token="tok")
 
     profile = result["profile"]
     assert "pop" in profile
     assert "slice of life" in profile
-    assert "cafe" in profile
 
 
 def test_crosswalk_anime_present_for_rock_user():
@@ -234,39 +202,7 @@ def test_anime_like_requires_auth(client):
     assert resp.status_code == 401
 
 
-# ===========================================================================
-# Tests: POST/DELETE /restaurants/{place_id}/like
-# ===========================================================================
 
-def test_restaurant_like_endpoint_201(client, auth_override):
-    with patch("routers.restaurants.add_like") as mock_add, \
-         patch("routers.restaurants.get_restaurant_details", return_value={"place_id": "place_1"}):
-        resp = client.post("/restaurants/place_1/like")
-    assert resp.status_code == 201
-    data = resp.json()
-    assert data["liked"] is True
-    assert data["place_id"] == "place_1"
-    mock_add.assert_called_once_with("user_test_42", "restaurants", "place_1")
-
-
-def test_restaurant_like_endpoint_404_unknown(client, auth_override):
-    with patch("routers.restaurants.get_restaurant_details", return_value=None):
-        resp = client.post("/restaurants/UNKNOWN/like")
-    assert resp.status_code == 404
-
-
-def test_restaurant_unlike_endpoint_200(client, auth_override):
-    with patch("routers.restaurants.remove_like") as mock_rm:
-        resp = client.delete("/restaurants/place_1/like")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["liked"] is False
-    mock_rm.assert_called_once_with("user_test_42", "restaurants", "place_1")
-
-
-def test_restaurant_like_requires_auth(client):
-    resp = client.post("/restaurants/place_1/like")
-    assert resp.status_code == 401
 
 
 # ===========================================================================
