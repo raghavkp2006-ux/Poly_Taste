@@ -1,0 +1,652 @@
+[
+  {
+    "place_id": "marina-beach",
+    "name": "Marina Beach",
+    "category": "adventure_outdoor",
+    "description": "Catch evening sea breezes, devour crispy sundal, and enjoy carnival games or casual beach cricket with your gang.",
+    "price_tier": "free",
+    "lat": 13.05258,
+    "lng": 80.28484,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "guindy-national-park",
+    "name": "Guindy National Park",
+    "category": "adventure_outdoor",
+    "description": "Escape city traffic to spot spotted deer and blackbucks wandering through this rare protected urban forest.",
+    "price_tier": "paid",
+    "lat": 12.99922,
+    "lng": 80.22803,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "chennai-snake-park",
+    "name": "Chennai Snake Park",
+    "category": "adventure_outdoor",
+    "description": "Get up close with king cobras, massive pythons, and giant crocodiles at this historic reptile conservation sanctuary.",
+    "price_tier": "paid",
+    "lat": 13.00327,
+    "lng": 80.23849,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "anna-nagar-tower-park",
+    "name": "Anna Nagar Tower Park",
+    "category": "adventure_outdoor",
+    "description": "Climb the iconic vantage tower for panoramic neighborhood vistas, lush green canopy trails, and active skate zones.",
+    "price_tier": "free",
+    "lat": 13.08661,
+    "lng": 80.21426,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "chetpet-eco-park",
+    "name": "Chetpet Eco Park",
+    "category": "adventure_outdoor",
+    "description": "Head out for scenic pedal boating across the urban lake, fresh lakeside walkways, and angling with friends.",
+    "price_tier": "paid",
+    "lat": 13.07562,
+    "lng": 80.24247,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "santhome-beach",
+    "name": "Santhome Beach",
+    "category": "adventure_outdoor",
+    "description": "A lively shoreline ideal for evening football matches, energetic frisbee sessions, and watching local fishing boats roll in.",
+    "price_tier": "free",
+    "lat": 13.02606,
+    "lng": 80.27851,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "kart-attack",
+    "name": "Kart Attack",
+    "category": "adventure_outdoor",
+    "description": "Burn some rubber and race your college squad around fast outdoor hairpin turns on the coastal highway.",
+    "price_tier": "paid",
+    "lat": 12.89611,
+    "lng": 80.24604,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "kotturpuram-tree-park",
+    "name": "Kotturpuram Tree Park",
+    "category": "adventure_outdoor",
+    "description": "A dense native tree plantation along the riverbank featuring rugged jogging paths and calisthenics workout zones.",
+    "price_tier": "free",
+    "lat": 13.02355,
+    "lng": 80.24528,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "tholkappiar-ecological-park",
+    "name": "Tholkappiar Ecological Park",
+    "category": "adventure_outdoor",
+    "description": "Walk through serene restored mangrove boardwalks to observe migratory waterbirds and coastal wetland biodiversity.",
+    "price_tier": "paid",
+    "lat": 13.02194,
+    "lng": 80.26828,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "government-museum-chennai",
+    "name": "Government Museum Chennai",
+    "category": "cultural_historic",
+    "description": "Explore massive galleries showcasing world-famous Chola bronzes, Roman coins, ancient stone carvings, and giant dinosaur fossils.",
+    "price_tier": "paid",
+    "lat": 13.07074,
+    "lng": 80.25683,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "fort-st-george",
+    "name": "Fort St. George",
+    "category": "cultural_historic",
+    "description": "Step into India's earliest British coastal fortress to tour colonial-era barracks, artillery, and historic fort ramparts.",
+    "price_tier": "paid",
+    "lat": 13.07968,
+    "lng": 80.28494,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "fort-museum",
+    "name": "Fort Museum",
+    "category": "cultural_historic",
+    "description": "Browse original colonial uniforms, silverware, antique weaponry, and East India Company artifacts inside historic garrison quarters.",
+    "price_tier": "paid",
+    "lat": 13.08073,
+    "lng": 80.28761,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "kapaleeshwarar-temple",
+    "name": "Kapaleeshwarar Temple",
+    "category": "cultural_historic",
+    "description": "Marvel at the soaring, rainbow-hued Dravidian gopuram and soak in traditional Mylapore temple vibes and evening chants.",
+    "price_tier": "free",
+    "lat": 13.03368,
+    "lng": 80.2699,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "sri-parthasarathy-temple",
+    "name": "Sri Parthasarathy Temple",
+    "category": "cultural_historic",
+    "description": "Visit this 8th-century Pallava architectural wonder in Triplicane, famous for intricate stone pillars and sacred ghee prasadam.",
+    "price_tier": "free",
+    "lat": 13.05396,
+    "lng": 80.27645,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "vadapalani-murugan-temple",
+    "name": "Vadapalani Murugan Temple",
+    "category": "cultural_historic",
+    "description": "A vibrant spiritual landmark in the city heart filled with ornate stucco carvings and bustling neighborhood energy.",
+    "price_tier": "free",
+    "lat": 13.05297,
+    "lng": 80.21357,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "st-marys-church",
+    "name": "St. Mary's Church",
+    "category": "cultural_historic",
+    "description": "Admire bomb-proof barrel-vaulted masonry and 300-year-old pipe organs inside the oldest surviving British church in India.",
+    "price_tier": "free",
+    "lat": 13.07877,
+    "lng": 80.28667,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "valluvar-kottam",
+    "name": "Valluvar Kottam",
+    "category": "cultural_historic",
+    "description": "Stand before the massive 39-meter stone chariot monument inscribed with all 1,330 couplets of classical Tamil wisdom.",
+    "price_tier": "paid",
+    "lat": 13.05411,
+    "lng": 80.24177,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "vivekanandar-illam",
+    "name": "Vivekanandar Illam",
+    "category": "cultural_historic",
+    "description": "Tour this unique 19th-century circular ice house overlooking the sea, featuring interactive VR exhibits on Vivekananda's journey.",
+    "price_tier": "paid",
+    "lat": 13.04957,
+    "lng": 80.28027,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "triumph-of-labour-monument",
+    "name": "Triumph of Labour Monument",
+    "category": "cultural_historic",
+    "description": "Snap photos at the iconic Marina seafront bronze sculpture celebrating the tireless strength and spirit of Indian workers.",
+    "price_tier": "free",
+    "lat": 13.06411,
+    "lng": 80.28375,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "san-thome-tomb",
+    "name": "San Thome Tomb",
+    "category": "cultural_historic",
+    "description": "Visit the subterranean crypt built directly over the apostle's resting place underneath the soaring neo-Gothic basilica.",
+    "price_tier": "free",
+    "lat": 13.03356,
+    "lng": 80.27801,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "kamaraj-memorial-house",
+    "name": "Kamaraj Memorial House",
+    "category": "cultural_historic",
+    "description": "Walk through the humble, preserved residence of Tamil Nadu's visionary kingmaker chief minister filled with vintage photographs.",
+    "price_tier": "free",
+    "lat": 13.04741,
+    "lng": 80.23952,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "amir-mahal",
+    "name": "Amir Mahal",
+    "category": "cultural_historic",
+    "description": "Admire the sprawling Indo-Saracenic royal palace estate in Royapettah, the official residence of the titular Prince of Arcot.",
+    "price_tier": "free",
+    "lat": 13.05639,
+    "lng": 80.26873,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "pasha",
+    "name": "Pasha",
+    "category": "nightlife",
+    "description": "Dance all night on plush Persian-style velvet rugs with pulsating deep house tracks and signature craft cocktails.",
+    "price_tier": "premium",
+    "lat": 13.05292,
+    "lng": 80.24995,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "sathyam-cinemas",
+    "name": "Sathyam Cinemas",
+    "category": "nightlife",
+    "description": "Catch midnight blockbuster releases with state-of-the-art Dolby Atmos sound and the city's legendary seasoned butter popcorn.",
+    "price_tier": "paid",
+    "lat": 13.05536,
+    "lng": 80.25808,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "havana-club",
+    "name": "Havana Club",
+    "category": "nightlife",
+    "description": "Let loose to high-energy Latin and commercial beats on the vibrant dance floor of this classic late-night lounge.",
+    "price_tier": "premium",
+    "lat": 13.02878,
+    "lng": 80.25312,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "flame-club",
+    "name": "Flame Club",
+    "category": "nightlife",
+    "description": "A bustling South Chennai night spot with lively DJ mixes, neon-lit vibes, and affordable weekend student party deals.",
+    "price_tier": "paid",
+    "lat": 13.00676,
+    "lng": 80.20571,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "krishnaveni-cinemas",
+    "name": "Krishnaveni Cinemas",
+    "category": "nightlife",
+    "description": "Experience roaring midnight fan celebrations, laser projection, and intense Dolby Atmos surround sound for late-night releases.",
+    "price_tier": "paid",
+    "lat": 13.03457,
+    "lng": 80.23069,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "kamaraj-arangam",
+    "name": "Kamaraj Arangam",
+    "category": "nightlife",
+    "description": "Catch live indie rock concerts, celebrity music concerts, and hilarious stand-up comedy specials under one giant roof.",
+    "price_tier": "paid",
+    "lat": 13.04905,
+    "lng": 80.24833,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "sri-krishna-gana-sabha",
+    "name": "Sri Krishna Gana Sabha",
+    "category": "nightlife",
+    "description": "Experience magical evening acoustic concerts, classical Carnatic jams, and dramatic theatrical productions in T. Nagar.",
+    "price_tier": "paid",
+    "lat": 13.04322,
+    "lng": 80.23042,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "alliance-française-auditorium",
+    "name": "Alliance Française Auditorium",
+    "category": "nightlife",
+    "description": "Attend free evening world cinema screenings, indie acoustic gigs, and lively French-Indian cultural fusion showcases.",
+    "price_tier": "free",
+    "lat": 13.06693,
+    "lng": 80.24573,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "semmozhi-poonga",
+    "name": "Semmozhi Poonga",
+    "category": "chill_scenic",
+    "description": "Stroll past tranquil lotus ponds, exotic bonsai pavilions, and shaded bamboo canopies in this downtown botanical retreat.",
+    "price_tier": "paid",
+    "lat": 13.05064,
+    "lng": 80.25154,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "nageswara-rao-park",
+    "name": "Nageswara Rao Park",
+    "category": "chill_scenic",
+    "description": "A tranquil green oasis in Mylapore ideal for peaceful reading sessions, morning acoustic music jams, and quiet reflections.",
+    "price_tier": "free",
+    "lat": 13.03659,
+    "lng": 80.26339,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "haddows-road-park",
+    "name": "Haddows Road Park",
+    "category": "chill_scenic",
+    "description": "Relax beneath dense leafy canopies on cozy garden benches for a quiet break between college classes in Nungambakkam.",
+    "price_tier": "free",
+    "lat": 13.06322,
+    "lng": 80.24858,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "valmiki-nagar-beach",
+    "name": "Valmiki Nagar Beach",
+    "category": "chill_scenic",
+    "description": "A clean and peaceful beach stretch away from crowds, perfect for watching serene golden sunrises and catching cool breezes.",
+    "price_tier": "free",
+    "lat": 12.97898,
+    "lng": 80.26765,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "neelankarai-beach",
+    "name": "Neelankarai Beach",
+    "category": "chill_scenic",
+    "description": "Unwind on soft sands along the East Coast Road with unobstructed horizon views, rolling waves, and quiet shoreline walks.",
+    "price_tier": "free",
+    "lat": 12.94801,
+    "lng": 80.26162,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "kalaignar-centenary-park",
+    "name": "Kalaignar Centenary Park",
+    "category": "chill_scenic",
+    "description": "Marvel at illuminated musical fountains, glass greenhouses, and manicured floral gardens in Cathedral Road's newest park.",
+    "price_tier": "paid",
+    "lat": 13.05061,
+    "lng": 80.25401,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "independence-day-park",
+    "name": "Independence Day Park",
+    "category": "chill_scenic",
+    "description": "Sprawl out on open grassy lawns under towering banyan trees for peaceful outdoor study groups and casual chats.",
+    "price_tier": "free",
+    "lat": 13.05639,
+    "lng": 80.24223,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "bougainvilla-park",
+    "name": "Bougainvilla Park",
+    "category": "chill_scenic",
+    "description": "Bright pink flowering bougainvillea pergolas, paved walking circuits, and peaceful corners to chill out in Anna Nagar.",
+    "price_tier": "free",
+    "lat": 13.09176,
+    "lng": 80.22125,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "panagal-park",
+    "name": "Panagal Park",
+    "category": "chill_scenic",
+    "description": "Take a breather under cooling shaded tree clusters right in the centre of bustling T. Nagar after market strolls.",
+    "price_tier": "free",
+    "lat": 13.04143,
+    "lng": 80.23306,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "vr-chennai",
+    "name": "VR Chennai",
+    "category": "shopping_social",
+    "description": "Hang out at Anna Nagar's premier lifestyle hub with vibrant rooftop food courts, VR gaming arenas, and global retail.",
+    "price_tier": "free",
+    "lat": 13.08108,
+    "lng": 80.19666,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "chennai-citi-centre",
+    "name": "Chennai Citi Centre",
+    "category": "shopping_social",
+    "description": "Grab food court bites with scenic sea views, shop high-street fashion, and chill at this centrally located social hangout.",
+    "price_tier": "free",
+    "lat": 13.04291,
+    "lng": 80.27388,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "spencer-plaza",
+    "name": "Spencer Plaza",
+    "category": "shopping_social",
+    "description": "Hunt for quirky Tibetan handicrafts, leather accessories, vintage jewelry, and custom band tees inside Chennai's classic mall.",
+    "price_tier": "free",
+    "lat": 13.06164,
+    "lng": 80.26109,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "ampa-skywalk",
+    "name": "Ampa Skywalk",
+    "category": "shopping_social",
+    "description": "A favorite college crowd destination for budget-friendly food court snacks, apparel shopping, and weekend PVR movies.",
+    "price_tier": "free",
+    "lat": 13.0735,
+    "lng": 80.22143,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "alsa-mall",
+    "name": "Alsa Mall",
+    "category": "shopping_social",
+    "description": "Munch on iconic hot chicken puffs, sip cold coffee, and browse indie boutiques at this quintessential 90s student hangout.",
+    "price_tier": "free",
+    "lat": 13.06866,
+    "lng": 80.25721,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "ispahani-centre",
+    "name": "Ispahani Centre",
+    "category": "shopping_social",
+    "description": "Meet up for afternoon lattes, bubble tea, and casual socializing in Nungambakkam's cozy open-air shopping courtyard.",
+    "price_tier": "free",
+    "lat": 13.05536,
+    "lng": 80.24983,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "palladium-mall",
+    "name": "Palladium Mall",
+    "category": "shopping_social",
+    "description": "Window shop luxury fashion houses, sample gourmet patisserie, and soak in plush contemporary aesthetics in Velachery.",
+    "price_tier": "premium",
+    "lat": 12.99311,
+    "lng": 80.21772,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "grand-square-mall",
+    "name": "Grand Square Mall",
+    "category": "shopping_social",
+    "description": "A relaxed shopping complex in Velachery with bowling alleys, multiplex screens, and student-friendly food options.",
+    "price_tier": "free",
+    "lat": 12.97195,
+    "lng": 80.22034,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "lily-pond-complex",
+    "name": "Lily Pond Complex",
+    "category": "shopping_social",
+    "description": "Dig through endless second-hand academic bookstalls, vintage vinyl records, and bargain collectibles near Central.",
+    "price_tier": "free",
+    "lat": 13.08333,
+    "lng": 80.27256,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "birla-planetarium",
+    "name": "Birla Planetarium",
+    "category": "offbeat_indie",
+    "description": "Gaze up at mesmerizing 360-degree cosmic sky projections and journey through galaxies inside the state-of-the-art dome theatre.",
+    "price_tier": "paid",
+    "lat": 13.01196,
+    "lng": 80.24402,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "periyar-science-centre",
+    "name": "Periyar Science Centre",
+    "category": "offbeat_indie",
+    "description": "Interact with hands-on physics exhibits, robotics galleries, and life-size outdoor dinosaur park installations.",
+    "price_tier": "paid",
+    "lat": 13.01274,
+    "lng": 80.24278,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "cholamandal-artists-village",
+    "name": "Cholamandal Artists' Village",
+    "category": "offbeat_indie",
+    "description": "Explore open-air sculpture gardens and independent art galleries in India's pioneering coastal artists' collective.",
+    "price_tier": "paid",
+    "lat": 12.92291,
+    "lng": 80.25173,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "cholamandal-modern-art-gallery",
+    "name": "Cholamandal Modern Art Gallery",
+    "category": "offbeat_indie",
+    "description": "Discover progressive modern Indian paintings, metal sculptures, and experimental craft installations along the ECR.",
+    "price_tier": "paid",
+    "lat": 12.92254,
+    "lng": 80.25149,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "victoria-technical-institute",
+    "name": "Victoria Technical Institute",
+    "category": "offbeat_indie",
+    "description": "Browse authentic handmade rosewood carvings, artisan Tanjore paintings, and brass art pieces preserving traditional heritage.",
+    "price_tier": "free",
+    "lat": 13.06052,
+    "lng": 80.26052,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "chennai-lighthouse-museum",
+    "name": "Chennai Lighthouse Museum",
+    "category": "offbeat_indie",
+    "description": "Ride the elevator up India's only public lighthouse on a beach for breathtaking 360-degree bird's-eye coastal views.",
+    "price_tier": "paid",
+    "lat": 13.03967,
+    "lng": 80.27946,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "chennai-rail-museum",
+    "name": "Chennai Rail Museum",
+    "category": "offbeat_indie",
+    "description": "Ride a whimsical toy train amidst vintage heritage steam engines, royal salon coaches, and scale railway dioramas.",
+    "price_tier": "paid",
+    "lat": 13.10043,
+    "lng": 80.20873,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "iit-madras-heritage-centre",
+    "name": "IIT Madras Heritage Centre",
+    "category": "offbeat_indie",
+    "description": "Discover rare historical archives, vintage computing hardware, and photographs inside the serene, deer-filled IIT campus.",
+    "price_tier": "free",
+    "lat": 12.99078,
+    "lng": 80.23292,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "writers-cafe",
+    "name": "Writer's Cafe",
+    "category": "offbeat_indie",
+    "description": "Settle into book-lined study nooks with reliable Wi-Fi, Swiss fondue, and quiet co-working corners near Gopalapuram.",
+    "price_tier": "paid",
+    "lat": 13.05378,
+    "lng": 80.25281,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "wild-garden-cafe-amethyst",
+    "name": "Wild Garden Cafe at Amethyst",
+    "category": "chill_scenic",
+    "description": "Work under lush colonial veranda trees, sip iced tea, and snap aesthetic garden shots in this historic Royapettah mansion.",
+    "price_tier": "paid",
+    "lat": 13.05592,
+    "lng": 80.25983,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "chamiers-cafe",
+    "name": "Chamiers Cafe",
+    "category": "offbeat_indie",
+    "description": "A charming vintage cafe with retro floral wallpaper, cozy armchairs, and artisanal coffees perfect for productive laptop sessions.",
+    "price_tier": "paid",
+    "lat": 13.02781,
+    "lng": 80.24584,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "the-brew-room",
+    "name": "The Brew Room",
+    "category": "chill_scenic",
+    "description": "A glasshouse garden cafe serving single-origin pour-overs and breakfast platters in a calm, green open-air setting.",
+    "price_tier": "paid",
+    "lat": 13.04561,
+    "lng": 80.26084,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "amelies-cafe",
+    "name": "Amelie's Cafe & Creamery",
+    "category": "offbeat_indie",
+    "description": "Pastel European bistro vibes with delicious gourmet waffles, house gelato, and relaxed seating for studying or creative work.",
+    "price_tier": "paid",
+    "lat": 13.03714,
+    "lng": 80.24867,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "kannagi-nagar-art-district",
+    "name": "Kannagi Nagar Art District",
+    "category": "offbeat_indie",
+    "description": "Explore massive five-story street murals and striking contemporary graffiti in India's fifth designated open-air art district.",
+    "price_tier": "free",
+    "lat": 12.93489,
+    "lng": 80.22872,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "broken-bridge",
+    "name": "Broken Bridge",
+    "category": "chill_scenic",
+    "description": "An abandoned 1970s bridge over the Adyar estuary offering moody golden hour photo-ops and panoramic sea vistas.",
+    "price_tier": "free",
+    "lat": 13.00392,
+    "lng": 80.27419,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "dakshinachitra-heritage-museum",
+    "name": "DakshinaChitra Heritage Museum",
+    "category": "cultural_historic",
+    "description": "Wander through 18 authentic reconstructed South Indian heritage houses, artisan craft stalls, and picturesque agraharam streets.",
+    "price_tier": "paid",
+    "lat": 12.82294,
+    "lng": 80.24075,
+    "city": "Chennai"
+  },
+  {
+    "place_id": "covelong-point-surf-village",
+    "name": "Covelong Point Surf Village",
+    "category": "adventure_outdoor",
+    "description": "Catch coastal waves, photograph colorful bohemian fishing boats and beach murals, and hang out at breezy seaside surf shacks.",
+    "price_tier": "free",
+    "lat": 12.79383,
+    "lng": 80.25208,
+    "city": "Chennai"
+  }
+]

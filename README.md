@@ -1,6 +1,6 @@
 # Poly_Taste — Multi-Module Recommendation App
 
-A FastAPI application deployed to AWS Lambda via Mangum/SAM, providing content-based recommendations across multiple media domains. Currently supports **Spotify**, **Anime**, and **Restaurants** modules.
+A FastAPI application deployed to AWS Lambda via Mangum/SAM, providing content-based recommendations across multiple media domains. Currently supports **Spotify** and **Anime** modules.
 
 ---
 
@@ -62,24 +62,6 @@ TF-IDF + AutoEncoder similarity over a Kitsu-sourced catalog, plus live data fro
 
 ---
 
-### Restaurants
-
-Content similarity recommendations using the Google Places API. It searches for nearby restaurants based on a seed restaurant's types/cuisines and price level, using TF-IDF and cosine similarity to rank candidates.
-
-#### Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/restaurants/search?q=&location=` | Text search via Google Places API |
-| GET | `/restaurants/{place_id}` | Full details for a single restaurant |
-| GET | `/restaurants/{place_id}/recommend` | TF-IDF/cosine similarity recommendations based on cuisine and price |
-
-#### Setup
-
-1. Obtain a Google Places API Key from the Google Cloud Console.
-2. Enable the **Places API (New)** or standard **Places API**.
-3. Set the `GOOGLE_PLACES_API_KEY` in your `.env` file.
-
 ### 1. Clone and install
 
 ```bash
@@ -109,7 +91,6 @@ Edit `.env` and fill in:
 | `SPOTIFY_REDIRECT_URI` | Spotify OAuth | Set to `http://127.0.0.1:8000/spotify/callback` exactly. **Note:** Access the app via http://127.0.0.1:8000, not localhost. |
 | `SESSION_SECRET_KEY` | App authentication | Set to a random secure string in production |
 | `YOUTUBE_API_KEY` | `/anime/{id}/videos` | [console.cloud.google.com](https://console.cloud.google.com/apis/library/youtube.googleapis.com) — enable YouTube Data API v3 |
-| `GOOGLE_PLACES_API_KEY` | `/restaurants/*` | [console.cloud.google.com](https://console.cloud.google.com/apis/library/places-backend.googleapis.com) — enable Places API |
 
 > **YouTube quota note:** `search.list` costs 100 quota units per call. The free tier provides 10,000 units/day, supporting ~100 video searches/day.
 
