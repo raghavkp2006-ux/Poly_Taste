@@ -13,3 +13,5 @@ feedparser
 itsdangerous
 kagglehub
 numpy
+torch
+sentence-transformers

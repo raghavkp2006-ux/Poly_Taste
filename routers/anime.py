@@ -27,8 +27,6 @@ from typing import Any, Dict, List, Optional
 
 import feedparser
 import requests
-import torch
-import torch.nn as nn
 import pickle
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -39,12 +37,11 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from database import add_like, remove_like, get_likes
 from services.auth import get_current_user_id
 
-from models.anime_dnn import AnimeAutoEncoder
 from services.anilist_client import fetch_reviews_by_mal_id, fetch_upcoming_anime
 from services.jikan_client import get_catalog_from_s3
 
 from services.anime_recommender import (
-    sentence_transformer, anime_model, device, anime_data_map, 
+    anime_data_map, 
     latent_matrix, latent_ids, get_or_compute_embedding
 )
 
@@ -78,17 +75,6 @@ def _resolve_query(value: Any, fallback: int) -> int:
 
 catalog = get_catalog_from_s3()
 mal_id_to_index = {anime["mal_id"]: i for i, anime in enumerate(catalog)}
-
-latent_catalog = None
-if catalog and sentence_transformer is not None:
-    texts = [
-        f"{anime.get('synopsis', '')} {' '.join(anime.get('genres', []))}"
-        for anime in catalog
-    ]
-    dense_matrix = sentence_transformer.encode(texts)
-    with torch.no_grad():
-        dense_tensor = torch.tensor(dense_matrix, dtype=torch.float32).to(device)
-        latent_catalog = anime_model.encode(dense_tensor)
 
 # ---------------------------------------------------------------------------
 # Cold-start: ANN RSS feed (cached per Lambda instance)
@@ -178,23 +164,27 @@ def get_recommendations(request: AnimeRecRequest, limit: int = Query(default=10,
         return {"recommendations": []}
         
     # Create taste vector (average of liked anime embeddings)
-    # Using numpy instead of torch to avoid device mismatch issues with the list of numpy arrays
     import numpy as np
-    taste_vector = torch.tensor(np.array(vectors), dtype=torch.float32).mean(dim=0, keepdim=True)
+    taste_vector = np.array(vectors).mean(axis=0, keepdims=True)
     
-    # Compute cosine similarity
-    cos = nn.CosineSimilarity(dim=1, eps=1e-6)
-    similarities = cos(taste_vector, latent_matrix)
+    # Compute cosine similarity using numpy
+    norms = np.linalg.norm(latent_matrix, axis=1) * np.linalg.norm(taste_vector)
+    similarities = np.dot(latent_matrix, taste_vector.T).flatten() / np.maximum(norms, 1e-6)
     
     # Get top N + len(valid_ids) to ensure we can exclude liked ones
-    top_k = min(limit + len(valid_ids), len(latent_ids))
-    scores, indices = torch.topk(similarities, top_k)
+    top_k = min(limit + len(valid_ids), len(similarities))
+    if top_k >= len(similarities):
+        top_indices = np.argsort(-similarities)
+    else:
+        top_indices = np.argpartition(-similarities, top_k)[:top_k]
+        top_indices = top_indices[np.argsort(-similarities[top_indices])]
     
     recommendations = []
     liked_set = set(valid_ids)
     
-    for score, idx in zip(scores, indices):
-        idx = idx.item()
+    for idx in top_indices:
+        idx = int(idx)
+        score = similarities[idx]
         aid = latent_ids[idx]
         if aid in liked_set:
             continue
@@ -205,7 +195,7 @@ def get_recommendations(request: AnimeRecRequest, limit: int = Query(default=10,
             "title": data["title"],
             "imageUrl": data["imageUrl"],
             "reason": "Similar themes to your liked anime",
-            "score": round(score.item(), 4),
+            "score": round(float(score), 4),
             "category": "anime"
         })
         
@@ -259,14 +249,22 @@ def recommend_anime(
 
     if embedding is not None:
         # We have a valid embedding
-        seed_latent_cpu = torch.tensor(embedding, dtype=torch.float32).unsqueeze(0)
+        import numpy as np
+        seed_latent_cpu = np.array(embedding).reshape(1, -1)
         
-        cos = nn.CosineSimilarity(dim=1, eps=1e-6)
-        similarities = cos(seed_latent_cpu, latent_matrix)
-        scores, indices = torch.topk(similarities, n + 1)
+        norms = np.linalg.norm(latent_matrix, axis=1) * np.linalg.norm(seed_latent_cpu)
+        similarities = np.dot(latent_matrix, seed_latent_cpu.T).flatten() / np.maximum(norms, 1e-6)
         
-        for score, idx in zip(scores, indices):
-            idx = idx.item()
+        top_k = min(n + 1, len(similarities))
+        if top_k >= len(similarities):
+            top_indices = np.argsort(-similarities)
+        else:
+            top_indices = np.argpartition(-similarities, top_k)[:top_k]
+            top_indices = top_indices[np.argsort(-similarities[top_indices])]
+        
+        for idx in top_indices:
+            idx = int(idx)
+            score = similarities[idx]
             aid = latent_ids[idx]
             if aid == str(mal_id):
                 continue
@@ -274,7 +272,7 @@ def recommend_anime(
                 "mal_id": int(aid),
                 "title": anime_data_map[aid]["title"],
                 "image_url": anime_data_map[aid].get("imageUrl", ""),
-                "similarity_score": round(score.item(), 4),
+                "similarity_score": round(float(score), 4),
                 "genres": anime_data_map[aid].get("genres", [])
             }
             recommendations.append(rec_anime)

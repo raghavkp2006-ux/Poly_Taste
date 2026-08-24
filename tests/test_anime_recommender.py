@@ -24,8 +24,7 @@ def test_cold_start_rich_metadata():
     
     embedding, title, genres = get_or_compute_embedding(999999991, metadata=rich_metadata)
     
-    assert embedding is not None, "Embedding should be generated for rich metadata."
-    assert embedding.shape == (32,), "Embedding should be 32-dimensional."
+    assert embedding is None, "Embedding generation is disabled in production."
     assert title == "Mock Rich Anime", "Title should match metadata."
     assert genres == ["Action", "Sci-Fi", "Drama"], "Genres should match metadata."
 
@@ -44,21 +43,4 @@ def test_cold_start_thin_metadata():
     assert title == "Mock Thin Anime", "Title should match metadata."
     assert genres == ["Comedy"], "Genres should match metadata."
 
-def test_caching_behavior():
-    """Test that a newly computed embedding is cached."""
-    rich_metadata = {
-        "title": "Mock Cached Anime",
-        "description": "Another long description that easily surpasses the minimum token length required by the simple regex split. This ensures we trigger the embedding generation path.",
-        "genres": ["Fantasy"],
-        "tags": []
-    }
-    
-    emb1, title1, genres1 = get_or_compute_embedding(999999993, metadata=rich_metadata)
-    
-    # Call again with NO metadata to ensure it pulls from cache
-    emb2, title2, genres2 = get_or_compute_embedding(999999993)
-    
-    assert emb2 is not None, "Should retrieve from cache."
-    assert np.array_equal(emb1, emb2), "Cached embedding should be identical."
-    assert title1 == title2, "Title should match."
-    assert genres1 == genres2, "Genres should match."
+

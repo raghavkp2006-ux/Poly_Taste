@@ -42,13 +42,16 @@ def patch_catalogs(monkeypatch):
     monkeypatch.setattr(anime_router, "catalog", list(MOCK_ANIME_CATALOG))
     monkeypatch.setattr(anime_router, "mal_id_to_index",
                         {a["mal_id"]: i for i, a in enumerate(MOCK_ANIME_CATALOG)})
+    monkeypatch.setattr(anime_router, "anime_data_map",
+                        {str(a["mal_id"]): a for a in MOCK_ANIME_CATALOG})
 
     # Inject a random latent tensor — shape (n_items, latent_dim=32) matching the real model.
     # We don't need realistic embeddings; we just need recommend_anime to not crash.
-    import torch
-    torch.manual_seed(42)
-    fake_latent = torch.randn(len(MOCK_ANIME_CATALOG), 32)
-    monkeypatch.setattr(anime_router, "latent_catalog", fake_latent)
+    import numpy as np
+    np.random.seed(42)
+    fake_latent = np.random.randn(len(MOCK_ANIME_CATALOG), 32).astype(np.float32)
+    monkeypatch.setattr(anime_router, "latent_matrix", fake_latent)
+    monkeypatch.setattr(anime_router, "latent_ids", [str(a["mal_id"]) for a in MOCK_ANIME_CATALOG])
 
 
 @pytest.fixture(scope="module")

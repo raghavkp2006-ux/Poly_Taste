@@ -1,19 +1,14 @@
 import os
 import pickle
-import torch
-import torch.nn as nn
 from typing import Optional, Dict, Any, Tuple
 import numpy as np
 
 # Adjust imports based on your project structure
-from models.anime_dnn import AnimeAutoEncoder
 from services.anilist_client import fetch_anime_metadata
 
 # ---------------------------------------------------------------------------
 # Global State & Model Loading
 # ---------------------------------------------------------------------------
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 
@@ -59,21 +54,7 @@ def upload_models_to_s3() -> None:
         except Exception as e:
             print(f"[s3] Unexpected error uploading {key}: {e}")
 
-# Load SentenceTransformer model once at module level
-from sentence_transformers import SentenceTransformer
-
-sentence_transformer = SentenceTransformer("all-MiniLM-L6-v2")
-
-anime_model = AnimeAutoEncoder(input_dim=384, latent_dim=32).to(device)
-_model_path = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data",
-    "models",
-    "anime_model.pth",
-)
-if os.path.exists(_model_path):
-    anime_model.load_state_dict(torch.load(_model_path, map_location=device))
-anime_model.eval()
+# (Model loading removed for production; relying on precomputed embeddings only)
 
 # Load 15,000 dataset embeddings
 _pkl_path = os.path.join(
@@ -98,11 +79,8 @@ if os.path.exists(_pkl_path):
         latent_ids.append(str(k))
         
     if latent_ids:
-        # Move to CPU tensor for fast batch cosine similarity 
-        latent_matrix = torch.tensor(
-            np.array([anime_data_map[aid]['embedding'] for aid in latent_ids]),
-            dtype=torch.float32
-        )
+        # Fast batch cosine similarity matrix as numpy array
+        latent_matrix = np.array([anime_data_map[aid]['embedding'] for aid in latent_ids], dtype=np.float32)
 
 # In-memory cache for dynamically computed cold-start embeddings
 cold_start_embeddings = {}
@@ -172,22 +150,6 @@ def get_or_compute_embedding(anime_id: int, metadata: dict = None) -> Tuple[Opti
         print(f"[cold-start] Anime {anime_id} has thin metadata ({len(tokens)} tokens). Skipping embedding.")
         return None, title, genres_list
         
-    # 6. Transform and encode using SentenceTransformer
-    if sentence_transformer is None or anime_model is None:
-        print("[cold-start] Model or SentenceTransformer not loaded.")
-        return None, title, genres_list
-        
-    dense_vec = sentence_transformer.encode([combined_text])
-    feature_tensor = torch.tensor(dense_vec, dtype=torch.float32).to(device)
-    
-    with torch.no_grad():
-        embedding = anime_model.encode(feature_tensor).cpu().numpy()[0]
-        
-    # 7. Cache it
-    cold_start_embeddings[str_id] = {
-        'embedding': embedding,
-        'title': title,
-        'genres': genres_list
-    }
-    
-    return embedding, title, genres_list
+    # 6. Live SentenceTransformer encoding is disabled in production
+    print(f"[cold-start] Live embedding generation disabled for anime {anime_id}. Falling back to metadata.")
+    return None, title, genres_list

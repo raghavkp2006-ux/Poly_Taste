@@ -2,7 +2,6 @@ import os
 import time
 import requests
 import base64
-import torch
 from collections import defaultdict
 from typing import List, Dict, Any, Set, Optional
 from fastapi import APIRouter, HTTPException, Query, Response, Depends
@@ -11,7 +10,6 @@ from dotenv import load_dotenv
 
 from services.auth import create_session_cookie, get_current_user_id, create_state_token, verify_state_token
 from database import get_user, upsert_user, delete_user
-from models.spotify_dnn import SpotifySimilarityDNN
 
 load_dotenv()
 
@@ -523,19 +521,9 @@ def get_recommendations(limit: int = Query(default=10, ge=1, le=50), user_id: st
 # above instead.
 # ===========================================================================
 
-# Load PyTorch model at cold start (only used by the deprecated endpoint)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-spotify_model = SpotifySimilarityDNN(input_dim=10, hidden_dim=32).to(device)
+# ===========================================================================
 
-_model_path = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data",
-    "models",
-    "spotify_model.pth",
-)
-if os.path.exists(_model_path):
-    spotify_model.load_state_dict(torch.load(_model_path, map_location=device))
-spotify_model.eval()
+# (PyTorch model loading removed for production footprint; using NumPy fallback)
 
 
 def fetch_audio_features(track_ids: List[str], token: str) -> Dict[str, Dict[str, float]]:
@@ -614,28 +602,32 @@ def recommend_similar_tracks(track_id: str, user_id: str = Depends(get_current_u
             features["acousticness"],
         ]
 
-    seed_vector = torch.tensor(_normalize(seed_features), dtype=torch.float32).to(device)
+    import numpy as np
+    
+    seed_vector = np.array(_normalize(seed_features), dtype=np.float32)
 
     recommendations = []
-    with torch.no_grad():
-        for track in top_tracks:
-            tid = track["id"]
-            if tid == track_id or tid not in audio_features_map:
-                continue
+    for track in top_tracks:
+        tid = track["id"]
+        if tid == track_id or tid not in audio_features_map:
+            continue
 
-            candidate_vector = torch.tensor(
-                _normalize(audio_features_map[tid]), dtype=torch.float32
-            ).to(device)
-            similarity = spotify_model(seed_vector, candidate_vector).item()
+        candidate_vector = np.array(
+            _normalize(audio_features_map[tid]), dtype=np.float32
+        )
+        
+        # Simple Euclidean similarity fallback for deprecated endpoint
+        distance = np.linalg.norm(seed_vector - candidate_vector)
+        similarity = 1.0 / (1.0 + float(distance))
 
-            recommendations.append(
-                {
-                    "id": tid,
-                    "name": track["name"],
-                    "artists": [a["name"] for a in track.get("artists", [])],
-                    "similarity_score": round(similarity, 4),
-                }
-            )
+        recommendations.append(
+            {
+                "id": tid,
+                "name": track["name"],
+                "artists": [a["name"] for a in track.get("artists", [])],
+                "similarity_score": round(similarity, 4),
+            }
+        )
 
     recommendations.sort(key=lambda x: x["similarity_score"], reverse=True)
     return {"recommendations": recommendations[:5]}
