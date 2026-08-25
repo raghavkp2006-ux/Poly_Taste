@@ -216,6 +216,44 @@ if _use_local:
         "offbeat_indie",
     ]
 
+    class Movie(Base):  # type: ignore[valid-type]
+        """ORM model for TMDB movie catalog entries.
+
+        Each row represents a movie fetched from the TMDB API.
+        The ``personal_rating`` field stores Raghav's own IMDb rating
+        (1–10 float, nullable) imported from an IMDb CSV export.
+        """
+
+        __tablename__ = "movies"
+
+        id = Column(Integer, primary_key=True, autoincrement=True)
+        tmdb_id = Column(Integer, unique=True, nullable=False, index=True)
+        imdb_id = Column(String, unique=True, nullable=True, index=True)  # "tt..." string
+        title = Column(String, nullable=False)
+        overview = Column(String, nullable=True)
+        genres_json = Column(String, nullable=True)       # JSON list of genre strings, e.g. '["Action","Drama"]'
+        release_year = Column(Integer, nullable=True)
+        poster_url = Column(String, nullable=True)         # Full TMDB poster URL
+        vote_average = Column(Float, nullable=True)       # TMDB average vote (0–10 scale)
+        personal_rating = Column(Float, nullable=True)     # Raghav's IMDb rating (1–10 scale)
+        created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+        def to_dict(self) -> Dict[str, Any]:
+            import json as _json
+            return {
+                "id": self.id,
+                "tmdb_id": self.tmdb_id,
+                "imdb_id": self.imdb_id,
+                "title": self.title,
+                "overview": self.overview,
+                "genres": _json.loads(self.genres_json) if self.genres_json else [],
+                "release_year": self.release_year,
+                "poster_url": self.poster_url,
+                "vote_average": self.vote_average,
+                "personal_rating": self.personal_rating,
+                "created_at": self.created_at.isoformat() if self.created_at else None,
+            }
+
     Base.metadata.create_all(bind=_engine)
 
     # Inline schema migration to add new columns to existing DB if missing
@@ -226,6 +264,13 @@ if _use_local:
             conn.execute(text("ALTER TABLE spotify_users ADD COLUMN spotify_account_id TEXT"))
         if "spotify_display_name" not in columns:
             conn.execute(text("ALTER TABLE spotify_users ADD COLUMN spotify_display_name TEXT"))
+
+        # Migration for movies table
+        m_result = conn.execute(text("PRAGMA table_info(movies)"))
+        m_columns = [row[1] for row in m_result]
+        if "vote_average" not in m_columns:
+            conn.execute(text("ALTER TABLE movies ADD COLUMN vote_average REAL"))
+
         conn.execute(text("DROP TABLE IF EXISTS restaurants"))
         conn.execute(text("DROP TABLE IF EXISTS restaurant_reviews"))
 
