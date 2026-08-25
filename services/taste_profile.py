@@ -99,6 +99,59 @@ TOURISM_CROSSWALK: Dict[str, List[str]] = {
     "school": ["shopping_social"],
 }
 
+# ---------------------------------------------------------------------------
+# Dining crosswalk: Music genre / Anime genre → dining spot categories
+# ---------------------------------------------------------------------------
+DINING_CROSSWALK: Dict[str, List[str]] = {
+    # High-energy / aggressive genres & action anime → bars, street food
+    "rock": ["bar_nightlife_dining", "street_food_quick_bite"],
+    "metal": ["bar_nightlife_dining", "street_food_quick_bite"],
+    "action": ["bar_nightlife_dining", "street_food_quick_bite"],
+    "sports": ["street_food_quick_bite", "casual_dining"],
+    "adventure": ["street_food_quick_bite", "casual_dining"],
+    "shonen": ["street_food_quick_bite", "casual_dining"],
+
+    # Ambient / acoustic / chill genres & slice-of-life → cafes, fine dining
+    "ambient": ["cafe_coffee", "fine_dining"],
+    "jazz": ["cafe_coffee", "fine_dining"],
+    "folk": ["cafe_coffee", "casual_dining"],
+    "country": ["casual_dining", "cafe_coffee"],
+    "slice of life": ["cafe_coffee", "casual_dining"],
+    "iyashikei": ["cafe_coffee", "dessert_bakery"],
+
+    # Pop / dance / electronic → bars, casual dining
+    "electronic": ["bar_nightlife_dining"],
+    "dance": ["bar_nightlife_dining"],
+    "edm": ["bar_nightlife_dining"],
+    "house": ["bar_nightlife_dining"],
+    "techno": ["bar_nightlife_dining"],
+    "hip hop": ["bar_nightlife_dining", "street_food_quick_bite"],
+    "rap": ["bar_nightlife_dining", "street_food_quick_bite"],
+    "music": ["bar_nightlife_dining"],
+
+    # Classical / indie / arthouse → fine dining, cafes
+    "classical": ["fine_dining", "cafe_coffee"],
+    "historical": ["fine_dining", "casual_dining"],
+    "indie": ["cafe_coffee", "dessert_bakery"],
+    "psychological": ["cafe_coffee"],
+    "sci-fi": ["cafe_coffee", "dessert_bakery"],
+    "mecha": ["cafe_coffee"],
+    "fantasy": ["casual_dining", "fine_dining"],
+    "dark fantasy": ["bar_nightlife_dining", "cafe_coffee"],
+    "mystery": ["cafe_coffee", "fine_dining"],
+    "supernatural": ["cafe_coffee"],
+    "seinen": ["fine_dining", "cafe_coffee"],
+    "josei": ["cafe_coffee", "dessert_bakery"],
+    "drama": ["casual_dining", "cafe_coffee"],
+
+    # Mainstream pop & romance / comedy → casual dining, desserts
+    "pop": ["casual_dining", "dessert_bakery"],
+    "r&b": ["casual_dining", "dessert_bakery"],
+    "romance": ["dessert_bakery", "cafe_coffee"],
+    "comedy": ["casual_dining", "dessert_bakery"],
+    "school": ["street_food_quick_bite", "dessert_bakery"],
+}
+
 # Per-source weight multipliers so explicit likes (low volume but intentional)
 # are not drowned out by Spotify's high-volume implicit signal.
 _SPOTIFY_WEIGHT = 1.0   # Spotify profile already normalized to sum ~50
@@ -273,6 +326,31 @@ def _tourism_signal(
     return crosswalk_tourism
 
 
+def _dining_signal(
+    user_genre_weights: Dict[str, float],
+    user_anime_weights: Dict[str, float],
+) -> Dict[str, float]:
+    """
+    Map user's Spotify genre weights and anime genre weights to dining spot
+    category weights across the six dining categories using DINING_CROSSWALK.
+    """
+    crosswalk_dining: Dict[str, float] = {
+        "fine_dining": 0.0,
+        "casual_dining": 0.0,
+        "street_food_quick_bite": 0.0,
+        "cafe_coffee": 0.0,
+        "dessert_bakery": 0.0,
+        "bar_nightlife_dining": 0.0,
+    }
+    combined = _merge_profiles(user_genre_weights, user_anime_weights)
+    for genre, weight in combined.items():
+        categories = DINING_CROSSWALK.get(genre.lower(), [])
+        for cat in categories:
+            crosswalk_dining[cat] = crosswalk_dining.get(cat, 0.0) + weight
+
+    return crosswalk_dining
+
+
 def _merge_profiles(*profiles: Dict[str, float]) -> Dict[str, float]:
     """Sum multiple genre/keyword dicts into one merged profile."""
     merged: Dict[str, float] = {}
@@ -336,6 +414,12 @@ def compute_taste_profile(
         _merge_profiles(anime_profile, anilist_profile),
     )
 
+    # --- Build dining crosswalk from combined music + anime signals ---
+    crosswalk_dining = _dining_signal(
+        spotify_profile,
+        _merge_profiles(anime_profile, anilist_profile),
+    )
+
     # Fetch AniList watched list with titles
     anilist_watched = []
     try:
@@ -371,6 +455,7 @@ def compute_taste_profile(
         "anilist_watched": anilist_watched,
         "crosswalk_anime": crosswalk_anime,
         "crosswalk_tourism": crosswalk_tourism,
+        "crosswalk_dining": crosswalk_dining,
     }
 
 

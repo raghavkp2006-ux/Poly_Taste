@@ -216,6 +216,46 @@ if _use_local:
         "offbeat_indie",
     ]
 
+    class DiningSpot(Base):
+        """ORM model for restaurants/cafes catalog entries.
+
+        Sourced from OpenStreetMap Overpass export — this is bootstrap data,
+        NOT curated hand-written entries.  Descriptions and price tiers are
+        not available in the OSM data and default to NULL.
+        """
+        __tablename__ = "dining_spots"
+
+        place_id = Column(String, primary_key=True)
+        name = Column(String, nullable=False)
+        category = Column(String, nullable=False, index=True)
+        description = Column(String, nullable=True)   # NULL — not in OSM data
+        price_tier = Column(String, nullable=True)     # NULL — not in OSM data
+        cuisine = Column(String, nullable=True)        # Raw OSM cuisine tag
+        lat = Column(Float, nullable=False)
+        lng = Column(Float, nullable=False)
+        city = Column(String, nullable=False, default="Chennai")
+        osm_id = Column(String, nullable=True)         # e.g. "node/12345"
+
+    class UserDiningFeedback(Base):
+        """User like/dislike feedback on dining spots — mirrors UserSpotFeedback."""
+        __tablename__ = "user_dining_feedback"
+
+        id = Column(Integer, primary_key=True, autoincrement=True)
+        user_id = Column(String, ForeignKey("users.google_sub"), nullable=False, index=True)
+        place_id = Column(String, ForeignKey("dining_spots.place_id"), nullable=False, index=True)
+        rating = Column(Integer, nullable=False)
+        tag = Column(String, nullable=True)
+        created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    DINING_CATEGORIES = [
+        "fine_dining",
+        "casual_dining",
+        "street_food_quick_bite",
+        "cafe_coffee",
+        "dessert_bakery",
+        "bar_nightlife_dining",
+    ]
+
     class Movie(Base):  # type: ignore[valid-type]
         """ORM model for TMDB movie catalog entries.
 
