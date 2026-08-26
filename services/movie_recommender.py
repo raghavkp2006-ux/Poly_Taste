@@ -93,7 +93,9 @@ def get_similar_movies(movie_id: Any, n: int = 5) -> List[Dict[str, Any]]:
             "imageUrl": meta.get("poster_url") or "",
             "reason": "Similar themes and genres",
             "score": round(score, 4),
+            "similarity_score": round(score, 4),
             "category": "movie",
+            "genres": meta.get("genres", []),
         })
 
         if len(recommendations) >= n:
@@ -171,7 +173,9 @@ def get_taste_vector_recommendations(
             "imageUrl": meta.get("poster_url") or "",
             "reason": reason_text,
             "score": round(score, 4),
+            "similarity_score": round(score, 4),
             "category": "movie",
+            "genres": meta.get("genres", []),
         })
 
         if len(recommendations) >= n:

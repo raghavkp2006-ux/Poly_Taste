@@ -171,6 +171,17 @@ def test_get_anime_boost_map_returns_dict():
     assert isinstance(boost, dict)
 
 
+def test_get_movie_boost_map_returns_dict():
+    """get_movie_boost_map returns a {genre: float} dict with no errors."""
+    from services.taste_profile import get_movie_boost_map
+
+    with patch("services.taste_profile.get_likes", return_value=[]):
+        boost = get_movie_boost_map("user_x")
+
+    assert isinstance(boost, dict)
+
+
+
 # ===========================================================================
 # Tests: POST/DELETE /anime/{mal_id}/like
 # ===========================================================================
@@ -296,3 +307,47 @@ def test_anime_recommend_personalize_reranks_action_higher(client, auth_override
         action_positions = [recs.index(r) for r in action_recs]
         drama_positions = [recs.index(r) for r in drama_recs]
         assert min(action_positions) < min(drama_positions)
+
+
+# ===========================================================================
+# Tests: GET /movie/{movie_id}/recommend?personalize=true
+# ===========================================================================
+
+def test_movie_recommend_no_personalize_unchanged(client):
+    """?personalize=false (default) → no personalized_score field, existing behavior."""
+    resp = client.get("/movie/969681/recommend?n=2")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "recommendations" in data
+    assert data["personalized"] is False
+    for rec in data["recommendations"]:
+        assert "personalized_score" not in rec
+
+
+def test_movie_recommend_personalize_adds_scores(client, auth_override):
+    """?personalize=true with a valid session → personalized_score added for genre-matching recs."""
+    from services.auth import create_session_cookie
+
+    boost_map = {"action": 5.0, "adventure": 3.0, "science fiction": 2.0}
+    session_cookie = create_session_cookie("user_test_42")
+
+    client.cookies.set("session", session_cookie)
+    try:
+        with patch("services.taste_profile.get_movie_boost_map", return_value=boost_map):
+            resp = client.get("/movie/969681/recommend?n=4&personalize=true")
+    finally:
+        client.cookies.clear()
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["personalized"] is True
+    recs = data["recommendations"]
+
+    for rec in recs:
+        rec_genres_lower = [g.lower() for g in rec.get("genres", [])]
+        has_boosted_genre = any(g in boost_map for g in rec_genres_lower)
+        if has_boosted_genre:
+            assert "personalized_score" in rec, f"Expected personalized_score on {rec['title']}"
+            assert "genre_boost" in rec
+            assert rec["personalized_score"] >= rec["score"]
+

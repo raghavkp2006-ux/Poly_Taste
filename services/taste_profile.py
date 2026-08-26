@@ -100,6 +100,59 @@ TOURISM_CROSSWALK: Dict[str, List[str]] = {
 }
 
 # ---------------------------------------------------------------------------
+# Movie crosswalk: Music genre / Anime genre -> movie genres
+# ---------------------------------------------------------------------------
+MOVIE_CROSSWALK: Dict[str, List[str]] = {
+    # High-energy / aggressive genres & action anime
+    "rock": ["Action", "Thriller", "War"],
+    "metal": ["Action", "Thriller", "Horror"],
+    "action": ["Action", "Thriller", "Adventure"],
+    "sports": ["Action", "Drama", "Documentary"],
+    "adventure": ["Adventure", "Action", "Fantasy"],
+    "shonen": ["Action", "Adventure", "Animation"],
+
+    # Ambient / acoustic / chill genres & slice-of-life anime
+    "ambient": ["Documentary", "Drama", "Mystery"],
+    "jazz": ["Drama", "Music", "Crime"],
+    "folk": ["Drama", "Family", "History"],
+    "country": ["Western", "Drama", "Family"],
+    "slice of life": ["Drama", "Comedy", "Family"],
+    "iyashikei": ["Documentary", "Family", "Animation"],
+
+    # Pop / dance / electronic genres & idol / music anime
+    "electronic": ["Science Fiction", "Mystery", "Thriller"],
+    "dance": ["Music", "Romance", "Comedy"],
+    "edm": ["Science Fiction", "Action", "Music"],
+    "house": ["Music", "Drama", "Romance"],
+    "techno": ["Science Fiction", "Thriller", "Action"],
+    "hip hop": ["Crime", "Action", "Music"],
+    "rap": ["Crime", "Action", "Drama"],
+    "music": ["Music", "Documentary", "Family"],
+
+    # Classical / indie genres & arthouse / psychological anime
+    "classical": ["History", "Drama", "Music"],
+    "historical": ["History", "War", "Drama"],
+    "indie": ["Drama", "Comedy", "Romance"],
+    "psychological": ["Thriller", "Mystery", "Drama"],
+    "sci-fi": ["Science Fiction", "Mystery", "Action"],
+    "mecha": ["Science Fiction", "Action", "Animation"],
+    "fantasy": ["Fantasy", "Adventure", "Animation"],
+    "dark fantasy": ["Horror", "Fantasy", "Thriller"],
+    "mystery": ["Mystery", "Crime", "Thriller"],
+    "supernatural": ["Horror", "Fantasy", "Mystery"],
+    "seinen": ["Crime", "Drama", "Thriller"],
+    "josei": ["Romance", "Drama", "Comedy"],
+    "drama": ["Drama", "Romance", "History"],
+
+    # Mainstream pop & romance / comedy
+    "pop": ["Romance", "Comedy", "Music"],
+    "r&b": ["Romance", "Drama", "Music"],
+    "romance": ["Romance", "Drama", "Comedy"],
+    "comedy": ["Comedy", "Family", "Romance"],
+    "school": ["Comedy", "Romance", "Animation"],
+}
+
+# ---------------------------------------------------------------------------
 # Dining crosswalk: Music genre / Anime genre → dining spot categories
 # ---------------------------------------------------------------------------
 DINING_CROSSWALK: Dict[str, List[str]] = {
@@ -157,6 +210,7 @@ DINING_CROSSWALK: Dict[str, List[str]] = {
 _SPOTIFY_WEIGHT = 1.0   # Spotify profile already normalized to sum ~50
 _ANIME_WEIGHT   = 2.0   # Each explicit anime like contributes 2.0 per genre
 _ANILIST_WEIGHT = 2.0
+_MOVIE_WEIGHT   = 2.0   # Each explicit movie rating contributes up to 2.0 per genre
 
 
 # ---------------------------------------------------------------------------
@@ -351,6 +405,67 @@ def _dining_signal(
     return crosswalk_dining
 
 
+def _movie_crosswalk_signal(
+    user_genre_weights: Dict[str, float],
+    user_anime_weights: Dict[str, float],
+) -> Dict[str, float]:
+    """
+    Map user's Spotify genre weights and anime genre weights to movie genres
+    using MOVIE_CROSSWALK.
+    """
+    crosswalk_movie: Dict[str, float] = {
+        "Action": 0.0, "Adventure": 0.0, "Animation": 0.0, "Comedy": 0.0,
+        "Crime": 0.0, "Documentary": 0.0, "Drama": 0.0, "Family": 0.0,
+        "Fantasy": 0.0, "History": 0.0, "Horror": 0.0, "Music": 0.0,
+        "Mystery": 0.0, "Romance": 0.0, "Science Fiction": 0.0,
+        "TV Movie": 0.0, "Thriller": 0.0, "War": 0.0, "Western": 0.0,
+    }
+    combined = _merge_profiles(user_genre_weights, user_anime_weights)
+    for genre, weight in combined.items():
+        categories = MOVIE_CROSSWALK.get(genre.lower(), [])
+        for cat in categories:
+            crosswalk_movie[cat] = crosswalk_movie.get(cat, 0.0) + weight
+
+    return crosswalk_movie
+
+
+def _movie_signal(user_id: str) -> Dict[str, float]:
+    """
+    Return a genre-frequency dict from the user's rated movies.
+    Weights by personal_rating (higher rating = proportionally higher weight).
+    """
+    try:
+        from database import get_db, Movie
+        import json as _json
+    except ImportError:
+        return {}
+
+    profile: Dict[str, float] = {}
+    db = next(get_db())
+    try:
+        rated_movies = db.query(Movie).filter(Movie.personal_rating.isnot(None)).all()
+        for movie in rated_movies:
+            rating = movie.personal_rating
+            if rating is None or rating <= 0:
+                continue
+
+            # Weighting: score/10 * _MOVIE_WEIGHT (mirroring _anilist_genre_signal)
+            weight = (rating / 10.0) * _MOVIE_WEIGHT
+
+            genres = []
+            if movie.genres_json:
+                genres = _json.loads(movie.genres_json)
+
+            for genre in genres:
+                profile[genre] = profile.get(genre, 0.0) + weight
+    except Exception as exc:
+        print(f"[taste_profile] _movie_signal error: {exc}")
+    finally:
+        db.close()
+
+    return profile
+
+
 def _merge_profiles(*profiles: Dict[str, float]) -> Dict[str, float]:
     """Sum multiple genre/keyword dicts into one merged profile."""
     merged: Dict[str, float] = {}
@@ -397,8 +512,9 @@ def compute_taste_profile(
 
     anime_profile = _anime_genre_signal(user_id)
     anilist_profile = _anilist_genre_signal(user_id)
+    movie_profile = _movie_signal(user_id)
 
-    merged = _merge_profiles(spotify_profile, anime_profile, anilist_profile)
+    merged = _merge_profiles(spotify_profile, anime_profile, anilist_profile, movie_profile)
 
     # --- Build anime crosswalk from Spotify genres ---
     crosswalk_anime: Dict[str, float] = {}
@@ -416,6 +532,12 @@ def compute_taste_profile(
 
     # --- Build dining crosswalk from combined music + anime signals ---
     crosswalk_dining = _dining_signal(
+        spotify_profile,
+        _merge_profiles(anime_profile, anilist_profile),
+    )
+
+    # --- Build movie crosswalk from combined music + anime signals ---
+    crosswalk_movie = _movie_crosswalk_signal(
         spotify_profile,
         _merge_profiles(anime_profile, anilist_profile),
     )
@@ -451,11 +573,13 @@ def compute_taste_profile(
             "spotify": dict(sorted(spotify_profile.items(), key=lambda x: x[1], reverse=True)),
             "anime": anime_profile,
             "anilist": anilist_profile,
+            "movie": movie_profile,
         },
         "anilist_watched": anilist_watched,
         "crosswalk_anime": crosswalk_anime,
         "crosswalk_tourism": crosswalk_tourism,
         "crosswalk_dining": crosswalk_dining,
+        "crosswalk_movie": crosswalk_movie,
     }
 
 
@@ -478,3 +602,40 @@ def get_anime_boost_map(user_id: str, spotify_token: Optional[str] = None) -> Di
         boost_map[genre] = boost_map.get(genre, 0.0) + weight
 
     return boost_map
+
+
+def get_movie_boost_map(user_id: str, spotify_token: Optional[str] = None) -> Dict[str, float]:
+    """
+    Return a {movie_genre: boost_weight} dict for use in
+    routers/movie.py's ?personalize=true re-ranking.
+
+    Combines crosswalk-derived movie genres (from Spotify and Anime)
+    with directly rated movie genres.
+
+    Values are normalised to [0, 5] so the reranking formula
+    ``similarity_score * (1 + boost/10)`` produces at most a 1.5x
+    multiplier — enough to reorder, never enough to overwhelm the
+    base similarity signal.  This mirrors the magnitude range that
+    anime's boost map naturally lands in (a handful of explicit likes
+    at ~2.0 weight each → single-digit totals).
+    """
+    profile_data = compute_taste_profile(user_id, spotify_token=spotify_token)
+    boost_map = dict(profile_data.get("crosswalk_movie", {}))
+
+    # Also directly boost genres of rated movies (already in breakdown["movie"])
+    for genre, weight in profile_data.get("breakdown", {}).get("movie", {}).items():
+        boost_map[genre] = boost_map.get(genre, 0.0) + weight
+
+    # --- Normalise to [0, _MOVIE_BOOST_CEILING] ---
+    # Raw weights can reach hundreds (251 rated movies × rating/10 × weight),
+    # while the reranking divisor (/10) was calibrated for single-digit boosts.
+    # Dividing by max and scaling to ceiling keeps relative genre ordering
+    # intact while capping the absolute multiplier.
+    _MOVIE_BOOST_CEILING = 5.0
+    max_val = max(boost_map.values(), default=0.0)
+    if max_val > 0:
+        scale = _MOVIE_BOOST_CEILING / max_val
+        boost_map = {k: v * scale for k, v in boost_map.items()}
+
+    return boost_map
+
