@@ -2,8 +2,6 @@ fastapi
 uvicorn
 requests
 python-dotenv
-boto3
-mangum
 scikit-learn
 pandas
 jinja2
@@ -13,3 +11,4 @@ feedparser
 itsdangerous
 kagglehub
 numpy
+psycopg2-binary
