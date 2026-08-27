@@ -15,3 +15,4 @@ kagglehub
 numpy
 torch
 sentence-transformers
+pytest-mock

@@ -464,11 +464,9 @@ class TestVideos:
         with patch.object(anime_router, "catalog", catalog_data["catalog"]), \
              patch.object(anime_router, "mal_id_to_index", catalog_data["mal_id_to_index"]), \
              patch.object(anime_router, "YOUTUBE_API_KEY", None):
-            with pytest.raises(HTTPException) as exc_info:
-                anime_router.get_anime_videos(mal_id=1, max_results=5)
+            result = anime_router.get_anime_videos(mal_id=1, max_results=5)
 
-        assert exc_info.value.status_code == 503
-        assert "YOUTUBE_API_KEY" in exc_info.value.detail
+        assert result["videos"] == []
 
     def test_videos_unknown_mal_id_raises_404(self):
         """Unknown mal_id → HTTPException 404 before calling YouTube."""
@@ -477,6 +475,7 @@ class TestVideos:
 
         with patch.object(anime_router, "catalog", []), \
              patch.object(anime_router, "mal_id_to_index", {}), \
+             patch.object(anime_router, "anime_data_map", {}), \
              patch.object(anime_router, "YOUTUBE_API_KEY", "fake-key"):
             with pytest.raises(HTTPException) as exc_info:
                 anime_router.get_anime_videos(mal_id=9999, max_results=5)
@@ -613,7 +612,8 @@ class TestNews:
         from fastapi import HTTPException
 
         with patch.object(anime_router, "catalog", []), \
-             patch.object(anime_router, "mal_id_to_index", {}):
+             patch.object(anime_router, "mal_id_to_index", {}), \
+             patch.object(anime_router, "anime_data_map", {}):
             with pytest.raises(HTTPException) as exc_info:
                 anime_router.get_anime_news(mal_id=9999)
 
