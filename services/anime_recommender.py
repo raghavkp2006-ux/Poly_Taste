@@ -10,51 +10,7 @@ from services.anilist_client import fetch_anime_metadata
 # Global State & Model Loading
 # ---------------------------------------------------------------------------
 
-S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 
-def _download_from_s3_if_needed(key: str, local_path: str) -> None:
-    """Download a file from S3 if S3_BUCKET_NAME is set and local file does not exist."""
-    if not S3_BUCKET_NAME or os.path.exists(local_path):
-        return
-    try:
-        os.makedirs(os.path.dirname(local_path), exist_ok=True)
-        import boto3
-        s3 = boto3.client("s3")
-        print(f"[s3] Downloading {key} from bucket '{S3_BUCKET_NAME}' to '{local_path}'...")
-        s3.download_file(S3_BUCKET_NAME, key, local_path)
-        print(f"[s3] Downloaded {key} successfully.")
-    except Exception as e:
-        print(f"[s3] Failed to download {key} from S3: {e}")
-
-def upload_models_to_s3() -> None:
-    """Upload model weights and embeddings pkl files to S3 if S3_BUCKET_NAME is configured."""
-    if not S3_BUCKET_NAME:
-        print("[s3] S3_BUCKET_NAME environment variable not set. Cannot upload to S3.")
-        return
-
-    import boto3
-    from botocore.exceptions import ClientError
-    s3 = boto3.client("s3")
-
-    targets = [
-        ("models/anime_model.pth", _model_path),
-        ("processed/anime_embeddings.pkl", _pkl_path),
-    ]
-
-    for key, local_path in targets:
-        if not os.path.exists(local_path):
-            print(f"[s3] Local file {local_path} does not exist. Cannot upload.")
-            continue
-        try:
-            print(f"[s3] Uploading {local_path} to S3 key '{key}' in bucket '{S3_BUCKET_NAME}'...")
-            s3.upload_file(local_path, S3_BUCKET_NAME, key)
-            print(f"[s3] Successfully uploaded {key} to S3.")
-        except ClientError as e:
-            print(f"[s3] Error uploading {key} to S3: {e}")
-        except Exception as e:
-            print(f"[s3] Unexpected error uploading {key}: {e}")
-
-# (Model loading removed for production; relying on precomputed embeddings only)
 
 # Load 15,000 dataset embeddings
 _pkl_path = os.path.join(
@@ -64,7 +20,6 @@ _pkl_path = os.path.join(
     "anime_embeddings.pkl",
 )
 
-_download_from_s3_if_needed("processed/anime_embeddings.pkl", _pkl_path)
 
 anime_data_map = {}
 latent_ids = []

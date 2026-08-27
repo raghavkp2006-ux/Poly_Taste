@@ -1,12 +1,8 @@
 import requests
 import time
 import json
-import boto3
-import os
 from typing import List, Dict, Any
-from botocore.exceptions import ClientError
-
-S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+import os
 
 # In-memory cache so we don't re-fetch the same genre relationship URL
 # across entries in a single catalog-build run.
@@ -133,47 +129,23 @@ def fetch_top_anime() -> List[Dict[str, Any]]:
 
 
 def upload_catalog_to_s3(catalog: list) -> None:
-    if not S3_BUCKET_NAME:
-        print("S3_BUCKET_NAME environment variable not set. Saving locally instead.")
-        os.makedirs("data/raw", exist_ok=True)
-        with open("data/raw/anime_catalog.json", "w") as f:
-            json.dump(catalog, f)
-        return
-
-    s3 = boto3.client("s3")
-    try:
-        s3.put_object(
-            Bucket=S3_BUCKET_NAME,
-            Key="anime/catalog.json",
-            Body=json.dumps(catalog),
-            ContentType="application/json",
-        )
-        print(f"Successfully uploaded anime catalog to S3 bucket: {S3_BUCKET_NAME}")
-    except ClientError as e:
-        print(f"Error uploading to S3: {e}")
+    os.makedirs("data/raw", exist_ok=True)
+    with open("data/raw/anime_catalog.json", "w") as f:
+        json.dump(catalog, f)
 
 
 def get_catalog_from_s3() -> List[Dict[str, Any]]:
     """Loads catalog for inference (local fallback when S3_BUCKET_NAME not set)."""
-    if not S3_BUCKET_NAME:
-        path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "data",
-            "raw",
-            "anime_catalog.json",
-        )
-        if os.path.exists(path):
-            with open(path, "r") as f:
-                return json.load(f)
-        return []
-
-    s3 = boto3.client("s3")
-    try:
-        response = s3.get_object(Bucket=S3_BUCKET_NAME, Key="anime/catalog.json")
-        return json.loads(response["Body"].read().decode("utf-8"))
-    except ClientError as e:
-        print(f"Error loading from S3: {e}")
-        return []
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "data",
+        "raw",
+        "anime_catalog.json",
+    )
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            return json.load(f)
+    return []
 
 
 if __name__ == "__main__":
