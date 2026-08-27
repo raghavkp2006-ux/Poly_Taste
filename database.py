@@ -68,11 +68,15 @@ if _use_local:
     from sqlalchemy.orm import declarative_base, sessionmaker, relationship
     from datetime import datetime, timezone
 
-    _DB_PATH = os.getenv(
-        "SQLITE_PATH",
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "spotify_tokens.db"),
-    )
-    _engine = create_engine(f"sqlite:///{_DB_PATH}", connect_args={"check_same_thread": False})
+    _db_url = os.getenv("DATABASE_URL")
+    if _db_url:
+        _engine = create_engine(_db_url)
+    else:
+        _DB_PATH = os.getenv(
+            "SQLITE_PATH",
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "spotify_tokens.db"),
+        )
+        _engine = create_engine(f"sqlite:///{_DB_PATH}", connect_args={"check_same_thread": False})
     engine = _engine
     Base = declarative_base()
 
@@ -294,25 +298,29 @@ if _use_local:
                 "created_at": self.created_at.isoformat() if self.created_at else None,
             }
 
-    Base.metadata.create_all(bind=_engine)
+    try:
+        Base.metadata.create_all(bind=_engine)
 
-    # Inline schema migration to add new columns to existing DB if missing
-    with _engine.begin() as conn:
-        result = conn.execute(text("PRAGMA table_info(spotify_users)"))
-        columns = [row[1] for row in result]
-        if "spotify_account_id" not in columns:
-            conn.execute(text("ALTER TABLE spotify_users ADD COLUMN spotify_account_id TEXT"))
-        if "spotify_display_name" not in columns:
-            conn.execute(text("ALTER TABLE spotify_users ADD COLUMN spotify_display_name TEXT"))
+        # Inline schema migration to add new columns to existing DB if missing
+        if _engine.dialect.name == "sqlite":
+            with _engine.begin() as conn:
+                result = conn.execute(text("PRAGMA table_info(spotify_users)"))
+                columns = [row[1] for row in result]
+                if "spotify_account_id" not in columns:
+                    conn.execute(text("ALTER TABLE spotify_users ADD COLUMN spotify_account_id TEXT"))
+                if "spotify_display_name" not in columns:
+                    conn.execute(text("ALTER TABLE spotify_users ADD COLUMN spotify_display_name TEXT"))
 
-        # Migration for movies table
-        m_result = conn.execute(text("PRAGMA table_info(movies)"))
-        m_columns = [row[1] for row in m_result]
-        if "vote_average" not in m_columns:
-            conn.execute(text("ALTER TABLE movies ADD COLUMN vote_average REAL"))
+                # Migration for movies table
+                m_result = conn.execute(text("PRAGMA table_info(movies)"))
+                m_columns = [row[1] for row in m_result]
+                if "vote_average" not in m_columns:
+                    conn.execute(text("ALTER TABLE movies ADD COLUMN vote_average REAL"))
 
-        conn.execute(text("DROP TABLE IF EXISTS restaurants"))
-        conn.execute(text("DROP TABLE IF EXISTS restaurant_reviews"))
+                conn.execute(text("DROP TABLE IF EXISTS restaurants"))
+                conn.execute(text("DROP TABLE IF EXISTS restaurant_reviews"))
+    except Exception:
+        pass
 
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
 
