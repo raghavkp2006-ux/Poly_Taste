@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+requests
+python-dotenv
+boto3
+mangum
+scikit-learn
+pandas
+jinja2
+python-multipart
+sqlalchemy
+feedparser
+itsdangerous
+kagglehub
+numpy
+torch
+sentence-transformers

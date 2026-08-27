@@ -20,20 +20,22 @@ export const colors = {
   music:       "#E8553F",
   /** Anime domain accent — soft teal-green */
   anime:       "#4F9C8C",
-  /** Food domain accent — copper-gold */
-  food:        "#D6A34C",
+  /** Tourism domain accent — warm golden amber */
+  tourism:     "#E3A857",
   /** UI chrome / interchange violet */
   interchange: "#8B87A8",
+  /** Error / Destructive state */
+  error:       "#E04336",
 } as const
 
-/** Convenience type for the three content domains */
-export type Domain = "music" | "anime" | "food"
+/** Convenience type for the content domains */
+export type Domain = "music" | "anime" | "tourism"
 
 /** Map a domain key to its accent hex */
 export const domainColor: Record<Domain, string> = {
-  music: colors.music,
-  anime: colors.anime,
-  food:  colors.food,
+  music:   colors.music,
+  anime:   colors.anime,
+  tourism: colors.tourism,
 }
 
 // ── Derived palette helpers ─────────────────────────────────────────
@@ -47,13 +49,16 @@ export const paperAlpha = (a: number) => `rgba(244,239,228,${a})`
 /** Domain accent at an alpha level */
 export const domainAlpha = (domain: Domain, a: number): string => {
   const map: Record<Domain, [number, number, number]> = {
-    music: [232, 85, 63],
-    anime: [79, 156, 140],
-    food:  [214, 163, 76],
+    music:   [232, 85, 63],
+    anime:   [79, 156, 140],
+    tourism: [227, 168, 87],
   }
   const [r, g, b] = map[domain]
   return `rgba(${r},${g},${b},${a})`
 }
+
+/** Error at an alpha level */
+export const errorAlpha = (a: number) => `rgba(224,67,54,${a})`
 
 // ── Typography ──────────────────────────────────────────────────────
 

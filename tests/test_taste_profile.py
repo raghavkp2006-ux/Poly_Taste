@@ -5,8 +5,6 @@ Tests for the cross-module taste profile feature:
   - services/taste_profile.py :: compute_taste_profile, get_anime_boost_map
   - POST /anime/{mal_id}/like
   - DELETE /anime/{mal_id}/like
-  - POST /restaurants/{place_id}/like
-  - DELETE /restaurants/{place_id}/like
   - GET /taste-profile (requires auth)
   - GET /anime/{mal_id}/recommend?personalize=true
 
@@ -44,13 +42,16 @@ def patch_catalogs(monkeypatch):
     monkeypatch.setattr(anime_router, "catalog", list(MOCK_ANIME_CATALOG))
     monkeypatch.setattr(anime_router, "mal_id_to_index",
                         {a["mal_id"]: i for i, a in enumerate(MOCK_ANIME_CATALOG)})
+    monkeypatch.setattr(anime_router, "anime_data_map",
+                        {str(a["mal_id"]): a for a in MOCK_ANIME_CATALOG})
 
     # Inject a random latent tensor — shape (n_items, latent_dim=32) matching the real model.
     # We don't need realistic embeddings; we just need recommend_anime to not crash.
-    import torch
-    torch.manual_seed(42)
-    fake_latent = torch.randn(len(MOCK_ANIME_CATALOG), 32)
-    monkeypatch.setattr(anime_router, "latent_catalog", fake_latent)
+    import numpy as np
+    np.random.seed(42)
+    fake_latent = np.random.randn(len(MOCK_ANIME_CATALOG), 32).astype(np.float32)
+    monkeypatch.setattr(anime_router, "latent_matrix", fake_latent)
+    monkeypatch.setattr(anime_router, "latent_ids", [str(a["mal_id"]) for a in MOCK_ANIME_CATALOG])
 
 
 @pytest.fixture(scope="module")
@@ -92,7 +93,6 @@ def test_compute_profile_spotify_only():
 
     assert "rock" in result["profile"] or "metal" in result["profile"]
     assert result["breakdown"]["anime"] == {}
-    assert result["breakdown"]["restaurants"] == {}
 
 
 def test_compute_profile_anime_likes_only():
@@ -119,57 +119,28 @@ def test_compute_profile_anime_likes_only():
     assert result["breakdown"]["spotify"] == {}
 
 
-def test_compute_profile_restaurant_likes_only():
-    """No Spotify token, restaurant likes → restaurant cuisines in profile."""
-    from services.taste_profile import compute_taste_profile
-
-    restaurant_likes = [
-        {"user_id": "user1", "module": "restaurants", "item_id": "place_1", "liked_at": 0},
-    ]
-
-    def mock_get_likes(user_id, module=None):
-        if module == "restaurants":
-            return restaurant_likes
-        return []
-
-    mock_place = {"place_id": "place_1", "types": ["thai_restaurant"]}
-
-    with patch("services.taste_profile.get_likes", side_effect=mock_get_likes), \
-         patch("services.google_places_client.get_restaurant_details", return_value=mock_place):
-        result = compute_taste_profile("user1", spotify_token=None)
-
-    assert "thai_restaurant" in result["profile"]
-    assert result["breakdown"]["spotify"] == {}
-    assert result["breakdown"]["anime"] == {}
-
-
 def test_compute_profile_combined():
-    """All three sources active → genres from each module present and summed."""
+    """Both sources active → genres from each module present and summed."""
     from services.taste_profile import compute_taste_profile
 
     anime_likes = [{"user_id": "u", "module": "anime", "item_id": "2", "liked_at": 0}]
-    restaurant_likes = [{"user_id": "u", "module": "restaurants", "item_id": "place_2", "liked_at": 0}]
 
     def mock_get_likes(user_id, module=None):
         if module == "anime":   return anime_likes
-        if module == "restaurants":  return restaurant_likes
         return []
 
     mock_artists = [{"id": "a1", "genres": ["pop"]}]
     mock_resp = MagicMock()
     mock_resp.status_code = 200
     mock_resp.json.return_value = {"items": mock_artists}
-    mock_place = {"place_id": "place_2", "types": ["cafe"]}
 
     with patch("services.taste_profile.requests.get", return_value=mock_resp), \
-         patch("services.taste_profile.get_likes", side_effect=mock_get_likes), \
-         patch("services.google_places_client.get_restaurant_details", return_value=mock_place):
+         patch("services.taste_profile.get_likes", side_effect=mock_get_likes):
         result = compute_taste_profile("u", spotify_token="tok")
 
     profile = result["profile"]
     assert "pop" in profile
     assert "slice of life" in profile
-    assert "cafe" in profile
 
 
 def test_crosswalk_anime_present_for_rock_user():
@@ -198,6 +169,17 @@ def test_get_anime_boost_map_returns_dict():
         boost = get_anime_boost_map("user_x")
 
     assert isinstance(boost, dict)
+
+
+def test_get_movie_boost_map_returns_dict():
+    """get_movie_boost_map returns a {genre: float} dict with no errors."""
+    from services.taste_profile import get_movie_boost_map
+
+    with patch("services.taste_profile.get_likes", return_value=[]):
+        boost = get_movie_boost_map("user_x")
+
+    assert isinstance(boost, dict)
+
 
 
 # ===========================================================================
@@ -234,39 +216,7 @@ def test_anime_like_requires_auth(client):
     assert resp.status_code == 401
 
 
-# ===========================================================================
-# Tests: POST/DELETE /restaurants/{place_id}/like
-# ===========================================================================
 
-def test_restaurant_like_endpoint_201(client, auth_override):
-    with patch("routers.restaurants.add_like") as mock_add, \
-         patch("routers.restaurants.get_restaurant_details", return_value={"place_id": "place_1"}):
-        resp = client.post("/restaurants/place_1/like")
-    assert resp.status_code == 201
-    data = resp.json()
-    assert data["liked"] is True
-    assert data["place_id"] == "place_1"
-    mock_add.assert_called_once_with("user_test_42", "restaurants", "place_1")
-
-
-def test_restaurant_like_endpoint_404_unknown(client, auth_override):
-    with patch("routers.restaurants.get_restaurant_details", return_value=None):
-        resp = client.post("/restaurants/UNKNOWN/like")
-    assert resp.status_code == 404
-
-
-def test_restaurant_unlike_endpoint_200(client, auth_override):
-    with patch("routers.restaurants.remove_like") as mock_rm:
-        resp = client.delete("/restaurants/place_1/like")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["liked"] is False
-    mock_rm.assert_called_once_with("user_test_42", "restaurants", "place_1")
-
-
-def test_restaurant_like_requires_auth(client):
-    resp = client.post("/restaurants/place_1/like")
-    assert resp.status_code == 401
 
 
 # ===========================================================================
@@ -357,3 +307,47 @@ def test_anime_recommend_personalize_reranks_action_higher(client, auth_override
         action_positions = [recs.index(r) for r in action_recs]
         drama_positions = [recs.index(r) for r in drama_recs]
         assert min(action_positions) < min(drama_positions)
+
+
+# ===========================================================================
+# Tests: GET /movie/{movie_id}/recommend?personalize=true
+# ===========================================================================
+
+def test_movie_recommend_no_personalize_unchanged(client):
+    """?personalize=false (default) → no personalized_score field, existing behavior."""
+    resp = client.get("/movie/969681/recommend?n=2")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "recommendations" in data
+    assert data["personalized"] is False
+    for rec in data["recommendations"]:
+        assert "personalized_score" not in rec
+
+
+def test_movie_recommend_personalize_adds_scores(client, auth_override):
+    """?personalize=true with a valid session → personalized_score added for genre-matching recs."""
+    from services.auth import create_session_cookie
+
+    boost_map = {"action": 5.0, "adventure": 3.0, "science fiction": 2.0}
+    session_cookie = create_session_cookie("user_test_42")
+
+    client.cookies.set("session", session_cookie)
+    try:
+        with patch("services.taste_profile.get_movie_boost_map", return_value=boost_map):
+            resp = client.get("/movie/969681/recommend?n=4&personalize=true")
+    finally:
+        client.cookies.clear()
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["personalized"] is True
+    recs = data["recommendations"]
+
+    for rec in recs:
+        rec_genres_lower = [g.lower() for g in rec.get("genres", [])]
+        has_boosted_genre = any(g in boost_map for g in rec_genres_lower)
+        if has_boosted_genre:
+            assert "personalized_score" in rec, f"Expected personalized_score on {rec['title']}"
+            assert "genre_boost" in rec
+            assert rec["personalized_score"] >= rec["score"]
+

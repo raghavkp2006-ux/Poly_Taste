@@ -14,10 +14,6 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import requests
-from botocore.exceptions import ClientError
-
-S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
-
 ANILIST_URL = "https://graphql.anilist.co"
 JIKAN_URL = "https://api.jikan.moe/v4"
 
@@ -252,8 +248,6 @@ def fetch_upcoming_anime(per_page: int = 20) -> Dict[str, Any]:
 
 
 def _cache_upcoming_local(upcoming: List[Dict[str, Any]]) -> None:
-    if S3_BUCKET_NAME:
-        return  # S3 path handled separately if needed
     os.makedirs("data/raw", exist_ok=True)
     try:
         with open("data/raw/upcoming_anime.json", "w") as f:
@@ -443,6 +437,7 @@ def fetch_user_anime_list(access_token: str, anilist_user_id: int) -> List[Dict[
             score(format: POINT_10)
             media {
               idMal
+              genres
               title {
                 romaji
                 english
@@ -494,7 +489,8 @@ def fetch_user_anime_list(access_token: str, anilist_user_id: int) -> List[Dict[
                     "mal_id": int(mal_id),
                     "score": score_val,
                     "status": entry.get("status"),
-                    "title": title
+                    "title": title,
+                    "genres": media.get("genres") or [],
                 })
         return results
     except Exception as exc:

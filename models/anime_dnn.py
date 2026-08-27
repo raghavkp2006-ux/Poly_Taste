@@ -4,10 +4,10 @@ import torch.nn.functional as F
 
 class AnimeAutoEncoder(nn.Module):
     """
-    An AutoEncoder to compress high-dimensional TF-IDF anime features 
+    An AutoEncoder to compress dense sentence-transformer anime features (384 dims)
     into a smaller latent space (e.g. 32 dims) for cosine similarity computation.
     """
-    def __init__(self, input_dim=1000, latent_dim=32):
+    def __init__(self, input_dim=384, latent_dim=32):
         super(AnimeAutoEncoder, self).__init__()
         # Encoder
         self.enc1 = nn.Linear(input_dim, 128)

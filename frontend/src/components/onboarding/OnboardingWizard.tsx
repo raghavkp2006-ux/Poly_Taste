@@ -1,20 +1,16 @@
 import { useState } from "react"
 import { api } from "../../api"
 import { Button } from "../ui"
-
-// ── Style constants reused from App.tsx ──────────────────────────────
-const GLASS_PANEL = {
-  background:     "rgba(18,24,31,0.75)",
-  backdropFilter: "blur(10px)",
-  border:         "1px solid rgba(255,255,255,0.06)",
-  borderRadius:   "0.75rem",
-} as const
+import { domainColor, domainAlpha, fontFamily } from "../../tokens"
+import type { Domain } from "../../tokens"
+import { Card, ConnectionBadge } from "../interchange"
+import { ThemeToggleButton } from "../ui/ThemeToggleButton"
 
 // ── Step definitions ─────────────────────────────────────────────────
 
-type StepId = "welcome" | "spotify" | "anilist" | "location" | "done"
+type StepId = "welcome" | "spotify" | "anilist" | "done"
 
-const STEPS: StepId[] = ["welcome", "spotify", "anilist", "location", "done"]
+const STEPS: StepId[] = ["welcome", "spotify", "anilist", "done"]
 
 // ── Props ─────────────────────────────────────────────────────────────
 
@@ -35,9 +31,6 @@ export function OnboardingWizard({
   const [stepIndex, setStepIndex] = useState(
     Math.min(Math.max(initialStep, 0), STEPS.length - 1)
   )
-  const [locationStatus, setLocationStatus] = useState<
-    "idle" | "requesting" | "granted" | "denied"
-  >("idle")
 
   const step = STEPS[stepIndex]
 
@@ -51,12 +44,7 @@ export function OnboardingWizard({
   }
 
   const handleSkip = () => {
-    if (stepIndex >= STEPS.length - 2) {
-      // On the last optional step (location), skip → done step
-      advance()
-    } else {
-      advance()
-    }
+    advance()
   }
 
   const handleSpotifyConnect = () => {
@@ -67,43 +55,38 @@ export function OnboardingWizard({
     window.location.href = api.anilist.loginUrl
   }
 
-  const handleLocationRequest = () => {
-    if (!navigator.geolocation) {
-      advance()
-      return
-    }
-    setLocationStatus("requesting")
-    navigator.geolocation.getCurrentPosition(
-      () => {
-        setLocationStatus("granted")
-        // Auto-advance after brief acknowledgement
-        setTimeout(advance, 900)
-      },
-      () => {
-        setLocationStatus("denied")
-        setTimeout(advance, 900)
-      },
-      { timeout: 10000, maximumAge: 300000 }
-    )
-  }
-
   // ── Dot progress indicator ────────────────────────────────────────
+
+  const stepDomains: (Domain | "neutral")[] = ["neutral", "music", "anime"]
 
   function ProgressDots() {
     return (
-      <div className="flex items-center justify-center gap-1.5 mb-8">
-        {STEPS.slice(0, -1).map((_, i) => (
-          <div
-            key={i}
-            style={{
-              width:        i === stepIndex ? 20 : 6,
-              height:       6,
-              borderRadius: 3,
-              background:   i <= stepIndex ? "rgba(124,108,240,0.9)" : "rgba(255,255,255,0.12)",
-              transition:   "all 0.3s ease",
-            }}
-          />
-        ))}
+      <div className="flex items-center justify-center gap-3 mb-8">
+        {STEPS.slice(0, -1).map((_, i) => {
+          const domain = stepDomains[i]
+          const isCurrent = i === stepIndex
+          const isPast = i < stepIndex
+          const isActive = isCurrent || isPast
+
+          if (domain === "neutral") {
+            return (
+              <div key={i} className="relative flex items-center justify-center shrink-0" style={{ width: 14, height: 14 }}>
+                 <svg viewBox="0 0 14 14" className="absolute inset-0">
+                   <circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" className="text-black/15 dark:text-white/20" strokeWidth="2" />
+                   {isActive && <circle cx="7" cy="7" r="5" fill="none" stroke="#8B87A8" strokeWidth="2" />}
+                 </svg>
+              </div>
+            )
+          }
+          return (
+            <ConnectionBadge 
+              key={i} 
+              connected={isActive} 
+              domain={domain as Domain} 
+              size={14} 
+            />
+          )
+        })}
       </div>
     )
   }
@@ -114,30 +97,28 @@ export function OnboardingWizard({
     return (
       <>
         <div className="text-center space-y-3 mb-8">
-          <h1 className="text-2xl font-display font-bold text-foreground">
+          <h1 className="text-2xl font-bold text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out" style={{ fontFamily: fontFamily.display }}>
             Welcome to Poly Taste
           </h1>
-          <p className="text-sm font-sans text-muted-foreground max-w-sm mx-auto">
-            We blend your music, anime, and location signals into one unified taste model.
+          <p className="text-sm max-w-sm mx-auto text-[#71717A] dark:text-[#A1A1AA] transition-colors duration-150 ease-out" style={{ fontFamily: fontFamily.body }}>
+            We blend your music and anime signals into one unified taste model.
             Connecting these makes every recommendation more accurate.
           </p>
         </div>
 
         <div className="space-y-3 mb-8">
           {[
-            { icon: "♪", label: "Spotify", desc: "Tune anime & restaurant picks to your listening DNA" },
+            { icon: "♪", label: "Spotify", desc: "Tune anime picks to your listening DNA" },
             { icon: "⬡", label: "AniList",  desc: "Seed your anime recommendations from your watch history" },
-            { icon: "⊙", label: "Location", desc: "Find restaurants near you, personalised to your vibe" },
           ].map(({ icon, label, desc }) => (
             <div
               key={label}
-              className="flex items-start gap-3 p-3 rounded-lg"
-              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}
+              className="flex items-start gap-3 p-3 rounded-lg bg-black/[0.03] dark:bg-white/[0.03] border border-[#E4E4E7] dark:border-[#27272A] transition-colors duration-150 ease-out"
             >
-              <span className="text-lg mt-0.5 text-muted-foreground">{icon}</span>
+              <span className="text-lg mt-0.5 text-[#8B87A8]">{icon}</span>
               <div>
-                <p className="text-sm font-sans font-semibold text-foreground">{label}</p>
-                <p className="text-xs font-sans text-muted-foreground">{desc}</p>
+                <p className="text-sm font-semibold text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out" style={{ fontFamily: fontFamily.body }}>{label}</p>
+                <p className="text-xs text-[#71717A] dark:text-[#A1A1AA] transition-colors duration-150 ease-out" style={{ fontFamily: fontFamily.body }}>{desc}</p>
               </div>
             </div>
           ))}
@@ -160,12 +141,12 @@ export function OnboardingWizard({
         <div className="text-center space-y-2 mb-8">
           <div
             className="w-12 h-12 flex items-center justify-center rounded-full mx-auto mb-4"
-            style={{ background: "rgba(124,108,240,0.12)", border: "1px solid rgba(124,108,240,0.25)" }}
+            style={{ background: domainAlpha("music", 0.12), border: `1px solid ${domainAlpha("music", 0.25)}` }}
           >
-            <span style={{ fontSize: 22, color: "#7C6CF0" }}>♪</span>
+            <span style={{ fontSize: 22, color: domainColor.music }}>♪</span>
           </div>
-          <h2 className="text-xl font-display font-bold text-foreground">Connect Spotify</h2>
-          <p className="text-sm font-sans text-muted-foreground max-w-xs mx-auto">
+          <h2 className="text-xl font-bold text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out" style={{ fontFamily: fontFamily.display }}>Connect Spotify</h2>
+          <p className="text-sm max-w-xs mx-auto text-[#71717A] dark:text-[#A1A1AA] transition-colors duration-150 ease-out" style={{ fontFamily: fontFamily.body }}>
             We'll read your top tracks and artists to enrich recommendations across all domains.
             You can always connect later from your profile.
           </p>
@@ -175,14 +156,15 @@ export function OnboardingWizard({
           <Button
             id="btn-onboarding-spotify-connect"
             className="w-full"
-            style={{ backgroundColor: "#7C6CF0", color: "#fff" }}
+            style={{ backgroundColor: domainColor.music, color: "#FFFFFF" }}
             onClick={handleSpotifyConnect}
           >
             Connect Spotify
           </Button>
           <button
             id="btn-onboarding-spotify-skip"
-            className="w-full text-sm font-sans text-muted-foreground hover:text-foreground transition-colors py-2"
+            className="w-full text-sm text-[#71717A] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#FAFAFA] transition-colors py-2"
+            style={{ fontFamily: fontFamily.body }}
             onClick={handleSkip}
           >
             Skip for now
@@ -198,12 +180,12 @@ export function OnboardingWizard({
         <div className="text-center space-y-2 mb-8">
           <div
             className="w-12 h-12 flex items-center justify-center rounded-full mx-auto mb-4"
-            style={{ background: "rgba(74,144,226,0.12)", border: "1px solid rgba(74,144,226,0.25)" }}
+            style={{ background: domainAlpha("anime", 0.12), border: `1px solid ${domainAlpha("anime", 0.25)}` }}
           >
-            <span style={{ fontSize: 22, color: "#4A90E2" }}>⬡</span>
+            <span style={{ fontSize: 22, color: domainColor.anime }}>⬡</span>
           </div>
-          <h2 className="text-xl font-display font-bold text-foreground">Connect AniList</h2>
-          <p className="text-sm font-sans text-muted-foreground max-w-xs mx-auto">
+          <h2 className="text-xl font-bold text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out" style={{ fontFamily: fontFamily.display }}>Connect AniList</h2>
+          <p className="text-sm max-w-xs mx-auto text-[#71717A] dark:text-[#A1A1AA] transition-colors duration-150 ease-out" style={{ fontFamily: fontFamily.body }}>
             We'll import your watch history and ratings to instantly personalise anime
             recommendations. You can always connect later.
           </p>
@@ -213,75 +195,20 @@ export function OnboardingWizard({
           <Button
             id="btn-onboarding-anilist-connect"
             className="w-full"
-            style={{ backgroundColor: "#4A90E2", color: "#fff" }}
+            style={{ backgroundColor: domainColor.anime, color: "#FFFFFF" }}
             onClick={handleAniListConnect}
           >
             Connect AniList
           </Button>
           <button
             id="btn-onboarding-anilist-skip"
-            className="w-full text-sm font-sans text-muted-foreground hover:text-foreground transition-colors py-2"
+            className="w-full text-sm text-[#71717A] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#FAFAFA] transition-colors py-2"
+            style={{ fontFamily: fontFamily.body }}
             onClick={handleSkip}
           >
             Skip for now
           </button>
         </div>
-      </>
-    )
-  }
-
-  function StepLocation() {
-    return (
-      <>
-        <div className="text-center space-y-2 mb-8">
-          <div
-            className="w-12 h-12 flex items-center justify-center rounded-full mx-auto mb-4"
-            style={{ background: "rgba(227,168,87,0.12)", border: "1px solid rgba(227,168,87,0.25)" }}
-          >
-            <span style={{ fontSize: 22, color: "#E3A857" }}>⊙</span>
-          </div>
-          <h2 className="text-xl font-display font-bold text-foreground">Allow Location</h2>
-          <p className="text-sm font-sans text-muted-foreground max-w-xs mx-auto">
-            Used only to find restaurants near you — never stored on our servers.
-            You can always allow this later.
-          </p>
-        </div>
-
-        {locationStatus === "requesting" && (
-          <p className="text-center text-sm font-mono text-muted-foreground mb-4">
-            Requesting your location…
-          </p>
-        )}
-        {locationStatus === "granted" && (
-          <p className="text-center text-sm font-mono mb-4" style={{ color: "#3ED6C4" }}>
-            Location granted ✓
-          </p>
-        )}
-        {locationStatus === "denied" && (
-          <p className="text-center text-sm font-mono mb-4" style={{ color: "#FF7A59" }}>
-            Location denied — you can set a city in the restaurants tab.
-          </p>
-        )}
-
-        {locationStatus === "idle" && (
-          <div className="flex flex-col gap-3">
-            <Button
-              id="btn-onboarding-location-allow"
-              className="w-full"
-              style={{ backgroundColor: "#E3A857", color: "#0A0E14" }}
-              onClick={handleLocationRequest}
-            >
-              Allow Location
-            </Button>
-            <button
-              id="btn-onboarding-location-skip"
-              className="w-full text-sm font-sans text-muted-foreground hover:text-foreground transition-colors py-2"
-              onClick={handleSkip}
-            >
-              Skip for now
-            </button>
-          </div>
-        )}
       </>
     )
   }
@@ -293,14 +220,14 @@ export function OnboardingWizard({
           <div
             className="w-12 h-12 flex items-center justify-center rounded-full mx-auto mb-4"
             style={{
-              background:  "linear-gradient(135deg, rgba(124,108,240,0.2), rgba(62,214,196,0.2))",
-              border:      "1px solid rgba(124,108,240,0.3)",
+              background:  "rgba(139,135,168,0.12)",
+              border:      "1px solid rgba(139,135,168,0.25)",
             }}
           >
-            <span style={{ fontSize: 22 }}>✓</span>
+            <span className="text-xl font-bold text-[#18181B] dark:text-[#FAFAFA]">✓</span>
           </div>
-          <h2 className="text-xl font-display font-bold text-foreground">You're all set!</h2>
-          <p className="text-sm font-sans text-muted-foreground max-w-xs mx-auto">
+          <h2 className="text-xl font-bold text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out" style={{ fontFamily: fontFamily.display }}>You're all set!</h2>
+          <p className="text-sm max-w-xs mx-auto text-[#71717A] dark:text-[#A1A1AA] transition-colors duration-150 ease-out" style={{ fontFamily: fontFamily.body }}>
             Your Taste Passport is ready. Connect any remaining services from your profile
             page whenever you like.
           </p>
@@ -320,10 +247,12 @@ export function OnboardingWizard({
   // ── Render ────────────────────────────────────────────────────────
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <div
-        className="w-full max-w-sm"
-        style={GLASS_PANEL}
+    <div className="flex min-h-screen items-center justify-center p-4 relative">
+      <div className="absolute top-4 right-4 z-20">
+        <ThemeToggleButton />
+      </div>
+      <Card
+        className="w-full max-w-sm overflow-hidden"
       >
         <div className="p-8">
           {step !== "welcome" && step !== "done" && <ProgressDots />}
@@ -331,10 +260,9 @@ export function OnboardingWizard({
           {step === "welcome"  && <StepWelcome />}
           {step === "spotify"  && <StepSpotify />}
           {step === "anilist"  && <StepAniList />}
-          {step === "location" && <StepLocation />}
           {step === "done"     && <StepDone />}
         </div>
-      </div>
+      </Card>
     </div>
   )
 }

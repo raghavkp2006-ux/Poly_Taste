@@ -7,38 +7,15 @@
  */
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { colors, inkAlpha, paperAlpha, domainColor, domainAlpha, CARD_SURFACE } from "../tokens"
 
 // ── Re-export canonical Button ───────────────────────────────────────
 export { Button, buttonVariants } from "./ui/button"
 export type { ButtonProps } from "./ui/button"
 
-// ── Input ────────────────────────────────────────────────────────────
-
-export const Input = React.forwardRef<
-  HTMLInputElement,
-  React.InputHTMLAttributes<HTMLInputElement>
->(({ className, type, ...props }, ref) => {
-  return (
-    <input
-      type={type}
-      className={cn(
-        "flex h-10 w-full rounded-lg",
-        "border border-border bg-[rgba(18,24,31,0.8)]",
-        "px-3 py-2 text-sm text-foreground font-sans",
-        "placeholder:text-muted-foreground",
-        "backdrop-blur-sm",
-        "transition-colors duration-200",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-        "disabled:cursor-not-allowed disabled:opacity-50",
-        "file:border-0 file:bg-transparent file:text-sm file:font-medium",
-        className
-      )}
-      ref={ref}
-      {...props}
-    />
-  )
-})
-Input.displayName = "Input"
+// ── Re-export canonical Input ────────────────────────────────────────
+export { Input } from "./ui/input"
+export type { InputProps } from "./ui/input"
 
 // ── Card (glass-card variant) ─────────────────────────────────────────
 
@@ -46,10 +23,10 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
   return (
     <div
       className={cn(
-        "glass-card text-card-foreground",
         "overflow-hidden",
         className
       )}
+      style={CARD_SURFACE}
       {...props}
     />
   )
@@ -67,7 +44,8 @@ export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDiv
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h3
-      className={cn("font-display font-semibold leading-none tracking-tight text-foreground", className)}
+      className={cn("font-display font-semibold leading-none tracking-tight", className)}
+      style={{ color: colors.ink }}
       {...props}
     />
   )
@@ -98,11 +76,14 @@ export function TabsList({ active, setActive, children, className }: any) {
   return (
     <div
       className={cn(
-        "inline-flex h-10 items-center justify-center rounded-lg",
-        "bg-white/[0.04] border border-white/[0.06]",
-        "p-1 text-muted-foreground",
+        "inline-flex h-10 items-center justify-center rounded-lg p-1",
         className
       )}
+      style={{
+        backgroundColor: inkAlpha(0.04),
+        border: `1px solid ${inkAlpha(0.06)}`,
+        color: inkAlpha(0.6),
+      }}
     >
       {React.Children.map(children, (child) =>
         React.cloneElement(child, { active, setActive })
@@ -118,14 +99,19 @@ export function TabsTrigger({ value, active, setActive, children, className }: a
       className={cn(
         "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5",
         "text-sm font-sans font-medium",
-        "ring-offset-background transition-all duration-200",
+        "transition-all duration-200",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         "disabled:pointer-events-none disabled:opacity-50",
-        isActive
-          ? "bg-white/10 text-foreground shadow-sm border border-white/10"
-          : "hover:text-foreground",
         className
       )}
+      style={isActive ? {
+        backgroundColor: colors.paper,
+        color: colors.ink,
+        boxShadow: `0 1px 3px ${inkAlpha(0.05)}`,
+        border: `1px solid ${inkAlpha(0.1)}`,
+      } : {
+        color: inkAlpha(0.7),
+      }}
       onClick={() => setActive(value)}
     >
       {children}
@@ -159,17 +145,18 @@ export function Switch({ checked, onCheckedChange }: any) {
         "peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full",
         "border-2 border-transparent",
         "transition-colors duration-200",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-        "disabled:cursor-not-allowed disabled:opacity-50",
-        checked ? "bg-[#7C6CF0]" : "bg-white/10"
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "disabled:cursor-not-allowed disabled:opacity-50"
       )}
+      style={{ backgroundColor: checked ? colors.interchange : inkAlpha(0.1) }}
     >
       <span
         className={cn(
           "pointer-events-none block h-4 w-4 rounded-full",
-          "bg-white shadow-lg ring-0 transition-transform duration-200",
+          "shadow-lg ring-0 transition-transform duration-200",
           checked ? "translate-x-4" : "translate-x-0"
         )}
+        style={{ backgroundColor: colors.paper }}
       />
     </button>
   )
@@ -180,7 +167,7 @@ export function Switch({ checked, onCheckedChange }: any) {
 export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("animate-pulse rounded-lg bg-white/[0.06]", className)}
+      className={cn("animate-pulse rounded-lg bg-black/10 dark:bg-white/10 transition-colors duration-150 ease-out", className)}
       {...props}
     />
   )
@@ -189,23 +176,26 @@ export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivEl
 // ── Badge ─────────────────────────────────────────────────────────────
 
 interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: "default" | "secondary" | "outline" | "success" | "music" | "anime" | "food"
+  variant?: "default" | "secondary" | "outline" | "success" | "music" | "anime"
 }
 
 export function Badge({ className, variant = "default", ...props }: BadgeProps) {
+  const styleMap: Record<NonNullable<BadgeProps["variant"]>, React.CSSProperties> = {
+    default:   { backgroundColor: inkAlpha(0.1), color: colors.ink, border: `1px solid ${inkAlpha(0.1)}` },
+    secondary: { backgroundColor: paperAlpha(0.5), color: inkAlpha(0.7), border: `1px solid ${inkAlpha(0.1)}` },
+    outline:   { backgroundColor: "transparent", color: colors.ink, border: `1px solid ${inkAlpha(0.2)}` },
+    success:   { backgroundColor: "rgba(52,211,153,0.1)", color: "#10B981", border: "1px solid rgba(52,211,153,0.2)" },
+    music:     { backgroundColor: domainAlpha("music", 0.15), color: domainColor.music, border: `1px solid ${domainAlpha("music", 0.25)}` },
+    anime:     { backgroundColor: domainAlpha("anime", 0.15), color: domainColor.anime, border: `1px solid ${domainAlpha("anime", 0.25)}` },
+  }
+
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-sans font-semibold transition-colors",
-        variant === "default"   && "bg-[#7C6CF0]/20 text-[#7C6CF0] border border-[#7C6CF0]/30",
-        variant === "secondary" && "bg-white/5 text-muted-foreground border border-white/10",
-        variant === "outline"   && "border border-border text-foreground",
-        variant === "success"   && "bg-emerald-400/10 text-emerald-400 border border-emerald-400/20",
-        variant === "music"     && "bg-[#7C6CF0]/15 text-[#7C6CF0] border border-[#7C6CF0]/25",
-        variant === "anime"     && "bg-[#FF7A59]/15 text-[#FF7A59] border border-[#FF7A59]/25",
-        variant === "food"      && "bg-[#E3A857]/15 text-[#E3A857] border border-[#E3A857]/25",
         className
       )}
+      style={styleMap[variant]}
       {...props}
     />
   )
@@ -218,9 +208,12 @@ export function Avatar({ className, ...props }: React.HTMLAttributes<HTMLDivElem
     <div
       className={cn(
         "relative flex h-9 w-9 shrink-0 overflow-hidden rounded-full",
-        "bg-[#12181F] border border-white/10",
         className
       )}
+      style={{
+        backgroundColor: colors.ink,
+        border: `1px solid ${inkAlpha(0.1)}`,
+      }}
       {...props}
     />
   )
@@ -231,10 +224,12 @@ export function AvatarFallback({ className, ...props }: React.HTMLAttributes<HTM
     <span
       className={cn(
         "flex h-full w-full items-center justify-center rounded-full",
-        "bg-gradient-to-br from-[#7C6CF0]/80 to-[#3ED6C4]/80",
         "text-white text-sm font-display font-semibold",
         className
       )}
+      style={{
+        background: `linear-gradient(to bottom right, ${colors.interchange}, ${colors.ink})`,
+      }}
       {...props}
     />
   )
@@ -268,10 +263,11 @@ export function Tooltip({ content, children, className, ...props }: TooltipProps
         className={cn(
           "pointer-events-none absolute left-1/2 -translate-x-1/2 -top-9 z-50",
           "whitespace-nowrap rounded-lg px-2.5 py-1.5",
-          "glass-panel text-xs text-foreground",
+          "text-xs",
           "opacity-0 transition-opacity duration-150",
           "group-hover/tooltip:opacity-100"
         )}
+        style={{ ...CARD_SURFACE, padding: "6px 10px" }}
       >
         {content}
       </span>

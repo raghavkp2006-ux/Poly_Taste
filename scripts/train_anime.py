@@ -41,23 +41,19 @@ def train_model():
     print(f"Raw records: {total_records}")
     print(f"Usable records after dropping missing: {usable_records}")
     
-    print("Computing TF-IDF features...")
-    vectorizer = TfidfVectorizer(max_features=1000, stop_words='english')
-    tf_idf_matrix = vectorizer.fit_transform(texts).toarray()
+    print("Computing SentenceTransformer features using all-MiniLM-L6-v2...")
+    from sentence_transformers import SentenceTransformer
+    st_model = SentenceTransformer("all-MiniLM-L6-v2")
+    dense_embeddings = st_model.encode(texts, show_progress_bar=True, batch_size=64)
     
     # Convert to PyTorch tensor
-    tf_idf_features = torch.tensor(tf_idf_matrix, dtype=torch.float32)
-    num_samples, input_dimension = tf_idf_features.shape
+    features_tensor = torch.tensor(dense_embeddings, dtype=torch.float32)
+    num_samples, input_dimension = features_tensor.shape
     
     print(f"Feature shape: {num_samples} samples, {input_dimension} features")
-    
-    num_zeros = (tf_idf_matrix == 0).sum()
-    total_elements = tf_idf_matrix.size
-    sparsity = (num_zeros / total_elements) * 100
-    print(f"Dataset size check: Loaded {num_samples} records. This is the dataset size feeding into the model.")
-    print(f"Sparsity check: {sparsity:.2f}% of the TF-IDF feature matrix is zero-valued.")
+    print(f"Dataset size check: Loaded {num_samples} records into SentenceTransformer features.")
 
-    X_train, X_val = train_test_split(tf_idf_features, test_size=0.2, random_state=42)
+    X_train, X_val = train_test_split(features_tensor, test_size=0.2, random_state=42)
     print(f"Split into {len(X_train)} train and {len(X_val)} validation samples.")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -103,13 +99,6 @@ def train_model():
     model_path = 'data/models/anime_model.pth'
     torch.save(model.state_dict(), model_path)
     print(f"Model saved to {model_path}")
-
-    # Save the fitted TfidfVectorizer so embedding generation uses the
-    # exact same vocabulary and IDF weights (prevents mode collapse)
-    vectorizer_path = 'data/models/tfidf_vectorizer.pkl'
-    with open(vectorizer_path, 'wb') as vf:
-        pickle.dump(vectorizer, vf)
-    print(f"TfidfVectorizer saved to {vectorizer_path}")
 
     print("\n--- Reconstruction Quality Check (Validation Set) ---")
     model.eval()

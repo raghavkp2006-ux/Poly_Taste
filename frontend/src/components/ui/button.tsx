@@ -16,45 +16,40 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Indigo primary — solid glow
         default: [
-          "bg-[#7C6CF0] text-white",
-          "hover:bg-[#6B5AE8] hover:shadow-[0_0_24px_rgba(124,108,240,0.4)]",
+          "bg-[#18181B] text-[#FAFAFA] dark:bg-[#FAFAFA] dark:text-[#18181B]",
+          "hover:bg-[#27272A] dark:hover:bg-[#E4E4E7]",
+          "shadow-sm",
           "active:scale-[0.97]",
         ].join(" "),
 
-        // Glass secondary — frosted panel
         secondary: [
-          "bg-white/5 border border-white/10 text-foreground",
-          "backdrop-blur-sm",
-          "hover:bg-white/10 hover:border-white/20",
+          "bg-[#F4F4F5] text-[#18181B] dark:bg-[#27272A] dark:text-[#FAFAFA]",
+          "hover:bg-[#E4E4E7] dark:hover:bg-[#3F3F46]",
+          "shadow-sm",
           "active:scale-[0.97]",
         ].join(" "),
 
-        // Destructive
         destructive: [
-          "bg-destructive text-destructive-foreground",
-          "hover:bg-destructive/85",
+          "bg-red-600 text-white hover:bg-red-700 shadow-sm",
           "active:scale-[0.97]",
         ].join(" "),
 
-        // Outline — hairline border, glass hover
         outline: [
-          "border border-border bg-transparent text-foreground",
-          "hover:bg-white/5 hover:border-white/20",
+          "border border-[#E4E4E7] dark:border-[#27272A]",
+          "text-[#18181B] dark:text-[#FAFAFA]",
+          "bg-transparent hover:bg-[#F4F4F5] dark:hover:bg-[#27272A]",
           "active:scale-[0.97]",
         ].join(" "),
 
-        // Ghost — no border, subtle hover
         ghost: [
-          "bg-transparent text-muted-foreground",
-          "hover:bg-white/5 hover:text-foreground",
+          "text-[#18181B] dark:text-[#FAFAFA]",
+          "bg-transparent hover:bg-[#F4F4F5] dark:hover:bg-[#27272A]",
           "active:scale-[0.97]",
         ].join(" "),
 
-        // Text link
         link: [
-          "text-primary underline-offset-4",
+          "underline-offset-4",
           "hover:underline",
         ].join(" "),
       },
@@ -79,11 +74,13 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, style, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
+
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
+        style={style}
         ref={ref}
         {...props}
       />

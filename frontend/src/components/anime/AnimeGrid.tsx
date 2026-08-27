@@ -1,7 +1,7 @@
 import { motion } from "framer-motion"
 import { getHighResImageUrl } from "@/lib/utils"
-
-const ANIME_ACCENT = "#FF7A59"
+import { Card, LineRail, StationBadge } from "../interchange"
+import { domainAlpha, domainColor } from "../../tokens"
 
 export function AnimeGrid({
   animes,
@@ -13,12 +13,7 @@ export function AnimeGrid({
   if (!animes || animes.length === 0) {
     return (
       <div
-        className="text-center py-10 rounded-xl"
-        style={{
-          color: "#7B8794",
-          background: "rgba(18,24,31,0.5)",
-          border: "1px solid rgba(255,255,255,0.05)",
-        }}
+        className="text-center py-10 rounded-xl bg-white dark:bg-[#18181B] border border-[#E4E4E7] dark:border-[#27272A] text-[#71717A] dark:text-[#A1A1AA] transition-colors duration-150 ease-out"
       >
         No anime found.
       </div>
@@ -76,23 +71,15 @@ function AnimeSignalCard({
         ease:     [0.22, 1, 0.36, 1],
       }}
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
-      className="cursor-pointer group glow-edge-anime"
-      onClick={() => onSelect(anime)}
-      style={{
-        background: "rgba(18,24,31,0.75)",
-        backdropFilter: "blur(10px)",
-        border: "1px solid rgba(255,255,255,0.05)",
-        borderRadius: "0.75rem",
-        overflow: "hidden",
-      }}
+      className="h-full"
     >
-      {/* Domain accent bar */}
-      <div
-        className="h-0.5 w-full"
-        style={{ background: `linear-gradient(90deg, ${ANIME_ACCENT} 0%, transparent 80%)` }}
-      />
+      <Card
+        className="cursor-pointer group h-full flex flex-col relative overflow-hidden"
+        onClick={() => onSelect(anime)}
+      >
+        <LineRail domain="anime" />
 
-      {/* Cover image */}
+        {/* Cover image */}
       <div className="relative aspect-[3/4] overflow-hidden">
         {imgSrc ? (
           <img
@@ -104,9 +91,9 @@ function AnimeSignalCard({
         ) : (
           <div
             className="w-full h-full flex items-center justify-center text-4xl"
-            style={{ background: `${ANIME_ACCENT}10` }}
+            style={{ background: domainAlpha("anime", 0.1) }}
           >
-            ◈
+            <span style={{ color: domainColor.anime }}>◈</span>
           </div>
         )}
 
@@ -121,15 +108,8 @@ function AnimeSignalCard({
 
         {/* Score badge */}
         {anime.score && (
-          <div
-            className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold"
-            style={{
-              background: "rgba(10,14,20,0.85)",
-              color: ANIME_ACCENT,
-              border: `1px solid ${ANIME_ACCENT}40`,
-            }}
-          >
-            ★ {anime.score}
+          <div className="absolute top-2 right-2">
+            <StationBadge value={anime.score} domain="anime" size={32} />
           </div>
         )}
       </div>
@@ -144,13 +124,13 @@ function AnimeSignalCard({
         </h4>
         {genres.length > 0 && (
           <p
-            className="text-[9px] font-sans line-clamp-1"
-            style={{ color: "#7B8794" }}
+            className="text-[9px] font-sans line-clamp-1 text-[#71717A] dark:text-[#A1A1AA] transition-colors duration-150 ease-out"
           >
             {genres.slice(0, 2).join(" · ")}
           </p>
         )}
       </div>
+      </Card>
     </motion.div>
   )
 }

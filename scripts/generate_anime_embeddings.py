@@ -43,53 +43,16 @@ def main():
             
     print(f"Loaded {len(anime_records)} usable records.")
     
-    # Load the SAME fitted TfidfVectorizer used during training to guarantee
-    # identical feature space (vocabulary + IDF weights). Using fit_transform()
-    # with a new vectorizer would produce a different vocabulary ordering and
-    # different IDF values, corrupting the autoencoder's input and causing
-    # mode collapse (all embeddings ~identical).
-    vectorizer_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'models', 'tfidf_vectorizer.pkl')
-    if not os.path.exists(vectorizer_path):
-        print(f"Error: Fitted vectorizer not found at {vectorizer_path}. Run train_anime.py first.")
-        return
-    
-    print(f"Loading fitted TfidfVectorizer from {vectorizer_path}...")
-    with open(vectorizer_path, 'rb') as vf:
-        vectorizer = pickle.load(vf)
-    
-    print("Transforming text with pre-fitted vectorizer (transform, NOT fit_transform)...")
-    tf_idf_matrix = vectorizer.transform(texts).toarray()
-    
-    # --- Diagnostic: print raw TF-IDF vectors for 3 specific anime ---
-    diag_titles = ["One Piece", "Komi-san wa, Comyushou desu.", "Kuromukuro"]
-    title_to_idx = {rec['title']: i for i, rec in enumerate(anime_records)}
-    print("\n--- TF-IDF Diagnostic (raw vectors for 3 anime) ---")
-    for title in diag_titles:
-        # Try exact match first, then substring match
-        idx = title_to_idx.get(title)
-        if idx is None:
-            for t, i in title_to_idx.items():
-                if title.lower() in t.lower():
-                    idx = i
-                    title = t
-                    break
-        if idx is not None:
-            vec = tf_idf_matrix[idx]
-            nonzero_indices = vec.nonzero()[0]
-            feature_names = vectorizer.get_feature_names_out()
-            print(f"\n  '{title}' — {len(nonzero_indices)} nonzero features, L2 norm={sum(vec**2)**0.5:.4f}")
-            top_indices = nonzero_indices[vec[nonzero_indices].argsort()[::-1][:10]]
-            for fi in top_indices:
-                print(f"    feature[{fi}] '{feature_names[fi]}' = {vec[fi]:.6f}")
-        else:
-            print(f"\n  '{title}' — NOT FOUND in dataset")
-    print("--- End TF-IDF Diagnostic ---\n")
+    print("Computing SentenceTransformer features using all-MiniLM-L6-v2...")
+    from sentence_transformers import SentenceTransformer
+    st_model = SentenceTransformer("all-MiniLM-L6-v2")
+    dense_embeddings = st_model.encode(texts, show_progress_bar=True, batch_size=64)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    print("Loading trained AnimeAutoEncoder...")
-    model = AnimeAutoEncoder(input_dim=1000, latent_dim=32).to(device)
+    print("Loading trained AnimeAutoEncoder (input_dim=384)...")
+    model = AnimeAutoEncoder(input_dim=384, latent_dim=32).to(device)
     model_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'models', 'anime_model.pth')
     if not os.path.exists(model_path):
         print(f"Error: Model not found at {model_path}. Train the model first.")
@@ -98,13 +61,13 @@ def main():
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()  # Critical: disables dropout to ensure deterministic embeddings
     
-    print("Extracting latent embeddings...")
+    print("Extracting 32-dim latent embeddings...")
     embeddings_dict = {}
     
     batch_size = 1000
     with torch.no_grad():
         for i in range(0, len(anime_records), batch_size):
-            batch_texts = tf_idf_matrix[i:i+batch_size]
+            batch_texts = dense_embeddings[i:i+batch_size]
             batch_tensor = torch.tensor(batch_texts, dtype=torch.float32).to(device)
             latent_batch = model.encode(batch_tensor).cpu().numpy()
             

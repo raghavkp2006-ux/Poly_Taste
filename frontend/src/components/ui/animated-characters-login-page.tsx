@@ -3,6 +3,9 @@
 import { useState } from "react"
 import { api } from "@/api"
 import { AmbientBackground } from "./AmbientBackground"
+import { fontFamily, domainColor } from "../../tokens"
+import { Card } from "../interchange"
+import { ThemeToggleButton } from "./ThemeToggleButton"
 
 function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -23,10 +26,15 @@ function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"
-      style={{ backgroundColor: "#0A0E14" }}
+      className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden bg-[#FAFAFA] dark:bg-[#0A0A0B] text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out"
+      style={{ fontFamily: fontFamily.body }}
     >
       <AmbientBackground />
+
+      {/* Theme toggle in top right */}
+      <div className="absolute top-4 right-4 z-20">
+        <ThemeToggleButton />
+      </div>
 
       {/* Content */}
       <div className="relative z-10 w-full max-w-sm mx-auto text-center space-y-10">
@@ -74,49 +82,34 @@ function LoginPage() {
 
           <div className="space-y-2">
             <h1
-              className="text-3xl font-display font-bold tracking-tight"
-              style={{ color: "#E4E7EC" }}
+              className="text-3xl font-display font-bold tracking-tight text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out"
+              style={{ fontFamily: fontFamily.display }}
             >
               Poly_Taste
             </h1>
             <p
-              className="text-sm font-sans"
-              style={{ color: "#7B8794" }}
+              className="text-sm font-sans text-[#71717A] dark:text-[#A1A1AA] transition-colors duration-150 ease-out"
+              style={{ fontFamily: fontFamily.body }}
             >
               Your taste, unified.
             </p>
           </div>
-
+          
           {/* Domain pills */}
           <div className="flex items-center justify-center gap-2 pt-1">
-            <Pill color="#7C6CF0" label="Music"  />
-            <Pill color="#FF7A59" label="Anime"  />
-            <Pill color="#E3A857" label="Food"   />
+            <Pill color={domainColor.music} label="Music"  />
+            <Pill color={domainColor.anime} label="Anime"  />
           </div>
         </div>
 
         {/* Auth card */}
-        <div
-          className="space-y-4 p-6 rounded-2xl"
-          style={{
-            background: "rgba(18,24,31,0.80)",
-            backdropFilter: "blur(16px)",
-            border: "1px solid rgba(255,255,255,0.07)",
-          }}
-        >
+        <Card className="space-y-4 p-6">
           {/* Google sign-in */}
           <button
             id="btn-google-login"
             onClick={handleGoogleLogin}
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-3 h-12 px-6 rounded-xl transition-all duration-200 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C6CF0] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0E14]"
-            style={{
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              color: "#E4E7EC",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.10)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+            className="w-full flex items-center justify-center gap-3 h-12 px-6 rounded-xl border border-[#E4E4E7] dark:border-[#27272A] bg-white dark:bg-[#18181B] text-[#18181B] dark:text-[#FAFAFA] hover:bg-[#F4F4F5] dark:hover:bg-[#27272A] shadow-sm dark:shadow-none transition-all duration-200 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] dark:focus-visible:ring-[#3B82F6]"
           >
             {/* Google G */}
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
@@ -125,30 +118,27 @@ function LoginPage() {
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.72 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
             </svg>
-            <span className="text-sm font-sans font-semibold" style={{ color: "#E4E7EC" }}>
+            <span className="text-sm font-sans font-semibold text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out">
               {isLoading ? "Signing in…" : "Continue with Google"}
             </span>
           </button>
 
           {/* Divider */}
           <div className="flex items-center gap-3">
-            <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
-            <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">or</span>
-            <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+            <div className="flex-1 h-px bg-[#E4E4E7] dark:border-[#27272A] transition-colors duration-150 ease-out" />
+            <span className="text-[10px] font-mono text-[#71717A] dark:text-[#A1A1AA] uppercase tracking-widest">or</span>
+            <div className="flex-1 h-px bg-[#E4E4E7] dark:border-[#27272A] transition-colors duration-150 ease-out" />
           </div>
 
           {/* Skip */}
           <button
             id="btn-skip-login"
             onClick={handleSkip}
-            className="w-full flex items-center justify-center h-10 text-sm font-sans rounded-xl transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C6CF0] focus-visible:ring-offset-1 focus-visible:ring-offset-[#0A0E14]"
-            style={{ color: "#7B8794" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#E4E7EC")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "#7B8794")}
+            className="w-full flex items-center justify-center h-10 text-sm font-sans rounded-xl text-[#71717A] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#FAFAFA] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] dark:focus-visible:ring-[#3B82F6]"
           >
             Skip for now — browse anime
           </button>
-        </div>
+        </Card>
 
         {/* Error */}
         {error && (
@@ -162,8 +152,7 @@ function LoginPage() {
 
         {/* Footer */}
         <div
-          className="text-[9px] font-mono uppercase tracking-[0.2em]"
-          style={{ color: "rgba(123,135,148,0.4)" }}
+          className="text-[9px] font-mono uppercase tracking-[0.2em] text-[#71717A] dark:text-[#A1A1AA] transition-colors duration-150 ease-out"
         >
           Poly_Taste · Signal v2
         </div>

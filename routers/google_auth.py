@@ -45,22 +45,57 @@ def google_login():
         "https://accounts.google.com/o/oauth2/v2/auth"
         f"?client_id={GOOGLE_CLIENT_ID}"
         f"&redirect_uri={GOOGLE_REDIRECT_URI}"
-        "&response_type=id_token"
+        "&response_type=code"
         "&scope=openid%20email%20profile"
     )
     return RedirectResponse(url)
 
 
-@router.post("/callback")
-def google_callback(req: GoogleTokenRequest, response: Response):
-    """Verify the Google ID token, upsert the user, and set the session cookie."""
+@router.get("/callback")
+def google_callback(code: str | None = None, error: str | None = None):
+    """Verify the Google authorization code, exchange it for an ID token, upsert user, and set session cookie."""
+    if error:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Google login failed: {error}",
+        )
+    if not code:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing authorization code.",
+        )
     if not GOOGLE_CLIENT_ID:
         raise HTTPException(
             status_code=500,
             detail="Google Client ID is not configured on the server.",
         )
 
-    tokeninfo_url = f"https://oauth2.googleapis.com/tokeninfo?id_token={req.id_token}"
+    # Exchange authorization code for token containing id_token
+    token_url = "https://oauth2.googleapis.com/token"
+    payload = {
+        "code": code,
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "grant_type": "authorization_code",
+    }
+    
+    resp = requests.post(token_url, data=payload, timeout=10)
+    if resp.status_code != 200:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to exchange authorization code: {resp.text}",
+        )
+
+    token_data = resp.json()
+    id_token = token_data.get("id_token")
+    if not id_token:
+        raise HTTPException(
+            status_code=400,
+            detail="Missing id_token in Google response.",
+        )
+
+    tokeninfo_url = f"https://oauth2.googleapis.com/tokeninfo?id_token={id_token}"
     resp = requests.get(tokeninfo_url, timeout=10)
 
     if resp.status_code != 200:
@@ -96,6 +131,9 @@ def google_callback(req: GoogleTokenRequest, response: Response):
     )
 
     session_cookie = create_session_cookie(user_id=str(user["id"]))
+    
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    response = RedirectResponse(FRONTEND_URL)
     response.set_cookie(
         key="session",
         value=session_cookie,
@@ -104,4 +142,4 @@ def google_callback(req: GoogleTokenRequest, response: Response):
         max_age=30 * 24 * 60 * 60,
     )
 
-    return {"message": "Login successful", "user_id": user["id"]}
+    return response

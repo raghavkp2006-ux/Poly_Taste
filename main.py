@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, Response
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from database import get_dynamodb_resource
-from routers import google_auth, spotify, anime, restaurants, taste, restaurant, anilist, connections
+from routers import google_auth, spotify, spotify_import, anime, taste, anilist, connections, tourist_spots, movie, dining
 from services.auth import get_current_user_id, create_session_cookie
 from pydantic import BaseModel
 from fastapi import HTTPException
@@ -19,12 +19,14 @@ app.add_middleware(
 
 app.include_router(google_auth.router)
 app.include_router(spotify.router)
+app.include_router(spotify_import.router)
 app.include_router(anime.router)
-app.include_router(restaurants.router)
-app.include_router(restaurant.router)
+app.include_router(movie.router)
 app.include_router(taste.router)
 app.include_router(anilist.router)
 app.include_router(connections.router)
+app.include_router(tourist_spots.router)
+app.include_router(dining.router)
 
 @app.get("/")
 def read_root():

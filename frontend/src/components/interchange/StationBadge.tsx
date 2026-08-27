@@ -6,7 +6,7 @@
  */
 
 import type { Domain } from "../../tokens"
-import { domainColor, domainAlpha, fontFamily, inkAlpha } from "../../tokens"
+import { domainColor, domainAlpha, fontFamily } from "../../tokens"
 
 interface StationBadgeProps {
   /** Numeric value to display (0–100 score, match %, etc.) */
@@ -48,7 +48,8 @@ export function StationBadge({
           cy={size / 2}
           r={r}
           fill="none"
-          stroke={inkAlpha(0.08)}
+          stroke="currentColor"
+          className="text-black/[0.08] dark:text-white/[0.12]"
           strokeWidth={3}
         />
         {/* Progress ring */}

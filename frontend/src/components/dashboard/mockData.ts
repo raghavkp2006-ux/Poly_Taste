@@ -53,51 +53,6 @@ export const mockAnimeRecommendations: Recommendation[] = [
   },
 ]
 
-// ── Restaurant recommendations ──────────────────────────────────────
-
-export const mockRestaurantRecommendations: Recommendation[] = [
-  {
-    id: "r1",
-    title: "Sukiyabashi Jiro",
-    imageUrl: "",
-    reason: "Because you liked Nobu",
-    score: 98,
-    category: "restaurant",
-  },
-  {
-    id: "r2",
-    title: "Eleven Madison Park",
-    imageUrl: "",
-    reason: "Matches your fine-dining taste",
-    score: 95,
-    category: "restaurant",
-  },
-  {
-    id: "r3",
-    title: "Dishoom King's Cross",
-    imageUrl: "",
-    reason: "You enjoy Indian-fusion cuisine",
-    score: 90,
-    category: "restaurant",
-  },
-  {
-    id: "r4",
-    title: "Tartine Manufactory",
-    imageUrl: "",
-    reason: "Perfect for bakery lovers",
-    score: 87,
-    category: "restaurant",
-  },
-  {
-    id: "r5",
-    title: "Momofuku Noodle Bar",
-    imageUrl: "",
-    reason: "You rated ramen spots highly",
-    score: 93,
-    category: "restaurant",
-  },
-]
-
 // ── Music recommendations ───────────────────────────────────────────
 
 export const mockMusicRecommendations: Recommendation[] = [
@@ -154,13 +109,6 @@ export const mockRecentItems: RecentItem[] = [
     viewedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
   },
   {
-    id: "r2",
-    title: "Eleven Madison Park",
-    imageUrl: "",
-    category: "restaurant",
-    viewedAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-  },
-  {
     id: "m3",
     title: "Nujabes – Metaphorical Music",
     imageUrl: "",
@@ -188,13 +136,6 @@ export const mockActivity: ActivityItem[] = [
     timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
   },
   {
-    id: "act2",
-    action: "liked",
-    itemTitle: "Sukiyabashi Jiro",
-    category: "restaurant",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-  },
-  {
     id: "act3",
     action: "viewed",
     itemTitle: "Tame Impala – Currents",
@@ -208,13 +149,6 @@ export const mockActivity: ActivityItem[] = [
     detail: "4",
     category: "anime",
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
-  },
-  {
-    id: "act5",
-    action: "added",
-    itemTitle: "Dishoom King's Cross",
-    category: "restaurant",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
   },
   {
     id: "act6",

@@ -9,14 +9,16 @@ import { AnimeDetail } from "./components/anime/AnimeDetail"
 import { ConvergenceHalo } from "./components/dashboard/ConvergenceHalo"
 import { OnboardingWizard } from "./components/onboarding/OnboardingWizard"
 import { cn } from "@/lib/utils"
-import { Button, Input, Switch } from "./components/ui"
+import { Button, Input } from "./components/ui"
 import { Search, Loader2 } from "lucide-react"
+import { colors } from "./tokens"
+import { Card, LineRail } from "./components/interchange"
+import { ThemeProvider } from "./components/ui/ThemeProvider"
+import { ThemeToggleButton } from "./components/ui/ThemeToggleButton"
+import { TouristSpotsPage } from "./pages/TouristSpotsPage"
 import type { PageId } from "./types"
 
-import { GLASS_PANEL, colors } from "./tokens"
-
 // ── Domain accent constants ──────────────────────────────────────────
-const FOOD_ACCENT  = colors.food
 const MUSIC_ACCENT = colors.music
 
 // ── Derive wizard resume step from OAuth redirect params ────────────
@@ -31,8 +33,8 @@ function detectResumeStep(): number {
     window.history.replaceState(null, "", clean)
   }
 
-  if (spotifyDone && anilistDone) return 3 // Location step
-  if (anilistDone)                return 3 // Location step
+  if (spotifyDone && anilistDone) return 3 // Done step
+  if (anilistDone)                return 3 // Done step
   if (spotifyDone)                return 2 // AniList step
   return 0
 }
@@ -96,10 +98,10 @@ export default function App() {
     }
   }, [])
 
-  if (loading) {
-    return (
-      <>
-        <AmbientBackground />
+  return (
+    <ThemeProvider>
+      <AmbientBackground />
+      {loading ? (
         <div className="flex h-screen items-center justify-center bg-transparent">
           <div className="flex flex-col items-center gap-4">
             {/* Convergence ring spinner */}
@@ -128,23 +130,9 @@ export default function App() {
             </p>
           </div>
         </div>
-      </>
-    )
-  }
-
-  if (!user) {
-    return (
-      <>
-        <AmbientBackground />
+      ) : !user ? (
         <LoginPage />
-      </>
-    )
-  }
-
-  if (showOnboarding) {
-    return (
-      <>
-        <AmbientBackground />
+      ) : showOnboarding ? (
         <OnboardingWizard
           userId={user.user_id}
           initialStep={wizardStep}
@@ -153,20 +141,15 @@ export default function App() {
             setShowOnboarding(false)
           }}
         />
-      </>
-    )
-  }
-
-  return (
-    <>
-      <AmbientBackground />
-      <DashboardLayout
-        userId={user.user_id}
-        onLogout={() => {
-          api.auth.logout().then(() => setUser(null))
-        }}
-      />
-    </>
+      ) : (
+        <DashboardLayout
+          userId={user.user_id}
+          onLogout={() => {
+            api.auth.logout().then(() => setUser(null))
+          }}
+        />
+      )}
+    </ThemeProvider>
   )
 }
 
@@ -211,7 +194,7 @@ function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-transparent">
+    <div className="flex min-h-screen w-full overflow-x-hidden bg-transparent">
       <Sidebar
         currentPage={currentPage}
         onNavigate={handleNavigate}
@@ -223,7 +206,7 @@ function DashboardLayout({
 
       <div
         className={cn(
-          "flex-1 transition-all duration-300",
+          "flex-1 min-w-0 transition-all duration-300",
           collapsed ? "md:ml-[72px]" : "md:ml-[240px]"
         )}
       >
@@ -236,30 +219,30 @@ function DashboardLayout({
           />
         )}
         {currentPage === "anime" && (
-          <PageWrapper>
+          <PageWrapper title="Anime">
             <AnimeModule
               externalSelectedAnime={selectedAnime}
               onExternalSelectAnime={setSelectedAnime}
             />
           </PageWrapper>
         )}
-        {currentPage === "restaurants" && (
-          <PageWrapper>
-            <RestaurantModule />
-          </PageWrapper>
-        )}
         {currentPage === "music" && (
-          <PageWrapper>
+          <PageWrapper title="Music">
             <MusicSection />
           </PageWrapper>
         )}
+        {currentPage === "places" && (
+          <PageWrapper title="Places">
+            <TouristSpotsPage />
+          </PageWrapper>
+        )}
         {currentPage === "profile" && (
-          <PageWrapper>
+          <PageWrapper title="Taste Profile">
             <TasteProfileModule />
           </PageWrapper>
         )}
         {currentPage === "settings" && (
-          <PageWrapper>
+          <PageWrapper title="Settings">
             <SettingsSection />
           </PageWrapper>
         )}
@@ -270,9 +253,16 @@ function DashboardLayout({
 
 // ── Page wrapper ─────────────────────────────────────────────────────
 
-function PageWrapper({ children }: { children: React.ReactNode }) {
+function PageWrapper({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-[#FAFAFA] dark:bg-[#0A0A0B] transition-colors duration-150 ease-out">
+      {/* Sticky page top bar with theme toggle */}
+      <div className="sticky top-0 z-30 flex items-center justify-between gap-4 px-4 md:px-6 py-3 bg-[#FFFFFF] dark:bg-[#18181B] border-b border-[#E4E4E7] dark:border-[#27272A] transition-colors duration-150 ease-out">
+        <h1 className="text-sm font-semibold text-[#18181B] dark:text-[#FAFAFA] transition-colors duration-150 ease-out">
+          {title ?? ""}
+        </h1>
+        <ThemeToggleButton />
+      </div>
       <div className="flex-1 p-4 md:p-6 lg:p-8 pb-24 md:pb-8">
         {children}
       </div>
@@ -286,13 +276,13 @@ function SettingsSection() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <h2 className="text-2xl font-display font-bold text-foreground">Preferences</h2>
-      <div style={GLASS_PANEL}>
+      <Card className="relative overflow-hidden">
         <div className="p-6">
           <p className="text-sm font-sans text-muted-foreground">
             More settings coming soon. Your taste signals are already being tuned automatically.
           </p>
         </div>
-      </div>
+      </Card>
     </div>
   )
 }
@@ -318,10 +308,7 @@ function MusicSection() {
         <h2 className="text-xl font-display font-bold text-foreground">
           No music signals yet
         </h2>
-        <p
-          className="text-sm font-sans max-w-sm"
-          style={{ color: "#7B8794" }}
-        >
+        <p className="text-sm font-sans max-w-sm text-muted-foreground">
           Connect Spotify to activate your music signal — we'll learn your vibe from every listen.
         </p>
       </div>
@@ -405,7 +392,7 @@ function AnimeModule({
   return (
     <div className="space-y-8">
       {/* Search bar */}
-      <div className="p-4 rounded-xl" style={GLASS_PANEL}>
+      <Card className="p-4 rounded-xl relative overflow-hidden">
         <form onSubmit={handleSearch} className="flex gap-2 w-full max-w-lg">
           <Input
             placeholder="Search anime by title…"
@@ -418,7 +405,7 @@ function AnimeModule({
             Search
           </Button>
         </form>
-      </div>
+      </Card>
 
       {loading ? (
         <div className="flex justify-center p-12">
@@ -460,178 +447,6 @@ function AnimeModule({
   )
 }
 
-// ── Restaurant sub-module ────────────────────────────────────────────
-
-function RestaurantModule() {
-  const [query,          setQuery]          = useState("")
-  const [results,        setResults]        = useState<any[]>([])
-  const [loading,        setLoading]        = useState(false)
-  const [personalize,    setPersonalize]    = useState(false)
-  const [lat,            setLat]            = useState<number | null>(null)
-  const [lng,            setLng]            = useState<number | null>(null)
-  const [manualLocation, setManualLocation] = useState("")
-  const [locationStatus, setLocationStatus] = useState<
-    "idle" | "prompting" | "granted" | "denied"
-  >("idle")
-
-  useEffect(() => {
-    if (!navigator.geolocation) { setLocationStatus("denied"); return }
-    setLocationStatus("prompting")
-    navigator.geolocation.getCurrentPosition(
-      (pos) => { setLat(pos.coords.latitude); setLng(pos.coords.longitude); setLocationStatus("granted") },
-      (err) => { console.warn("[geo]", err.message); setLocationStatus("denied") },
-      { timeout: 10000, maximumAge: 300000 },
-    )
-  }, [])
-
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!query) return
-    setLoading(true)
-    try {
-      const res = await api.restaurants.search(query, lat ?? undefined, lng ?? undefined)
-      setResults(res.results || [])
-    } catch (e) { console.error(e) }
-    setLoading(false)
-  }
-
-  const handleManualSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!manualLocation.trim() || !query) return
-    setLoading(true)
-    try {
-      const res = await api.restaurants.search(query, undefined, undefined, manualLocation.trim())
-      setResults(res.results || [])
-    } catch (e) { console.error(e) }
-    setLoading(false)
-  }
-
-  const handleRecommend = async (id: string) => {
-    setLoading(true)
-    try {
-      const res = await api.restaurants.recommend(id, personalize)
-      setResults(res.recommendations || [])
-    } catch (e) { console.error(e) }
-    setLoading(false)
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Search panel */}
-      <div className="rounded-xl p-4 space-y-4" style={GLASS_PANEL}>
-        {/* Location banner */}
-        {locationStatus === "prompting" && (
-          <div className="flex items-center gap-2 text-xs font-mono" style={{ color: FOOD_ACCENT }}>
-            <Loader2 className="h-3 w-3 animate-spin" />
-            <span>Requesting your location…</span>
-          </div>
-        )}
-        {locationStatus === "granted" && lat && lng && (
-          <div className="flex items-center gap-2 text-xs font-mono" style={{ color: "#3ED6C4" }}>
-            <span>Location locked — {lat.toFixed(2)}, {lng.toFixed(2)}</span>
-          </div>
-        )}
-        {locationStatus === "denied" && (
-          <div className="space-y-2">
-            <p className="text-xs font-mono" style={{ color: "#FF7A59" }}>
-              Location denied — enter a city or ZIP to search nearby.
-            </p>
-            <form onSubmit={handleManualSearch} className="flex gap-2">
-              <Input
-                placeholder="City or ZIP code"
-                value={manualLocation}
-                onChange={(e) => setManualLocation(e.target.value)}
-                className="h-8 text-xs"
-                aria-label="Manual location"
-              />
-              <Button type="submit" size="sm" variant="outline" className="h-8 text-xs">
-                Set
-              </Button>
-            </form>
-          </div>
-        )}
-
-        {/* Search + personalize */}
-        <div className="flex items-center justify-between gap-4">
-          <form onSubmit={handleSearch} className="flex gap-2 w-full max-w-md">
-            <Input
-              placeholder="Search restaurants…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              aria-label="Search restaurants"
-            />
-            <Button
-              type="submit"
-              id="btn-restaurant-search"
-              style={{ backgroundColor: FOOD_ACCENT + "25", color: FOOD_ACCENT, border: `1px solid ${FOOD_ACCENT}40` }}
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-          </form>
-          <div className="flex items-center gap-2 shrink-0">
-            <label className="text-xs font-sans text-muted-foreground">Personalize</label>
-            <Switch checked={personalize} onCheckedChange={setPersonalize} />
-          </div>
-        </div>
-      </div>
-
-      {loading && (
-        <div className="flex justify-center p-8">
-          <Loader2 className="animate-spin" style={{ color: FOOD_ACCENT }} />
-        </div>
-      )}
-
-      {/* Results grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.isArray(results) && results.map((r) => {
-          const id = r.place_id || r.id
-          return (
-            <div
-              key={id}
-              className="rounded-xl overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.01] group glow-edge-food"
-              style={GLASS_PANEL}
-            >
-              {/* Accent bar */}
-              <div
-                className="h-0.5 w-full"
-                style={{ background: `linear-gradient(90deg, ${FOOD_ACCENT} 0%, transparent 80%)` }}
-              />
-              <div className="p-4 space-y-2">
-                <h3 className="text-sm font-sans font-semibold leading-snug line-clamp-2 text-foreground">
-                  {r.name}
-                </h3>
-                <p className="text-xs font-mono" style={{ color: FOOD_ACCENT }}>
-                  {r.rating ? `${r.rating} ★` : "No rating"}
-                </p>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono">
-                  {Array.isArray(r.types) ? r.types.slice(0, 3).join(" · ") : ""}
-                </p>
-                <p className="text-xs text-muted-foreground line-clamp-2 font-sans">
-                  {r.vicinity || r.formatted_address}
-                </p>
-              </div>
-              <div className="px-4 pb-4">
-                <button
-                  onClick={() => handleRecommend(id)}
-                  id={`btn-similar-${id}`}
-                  className="text-[11px] font-mono uppercase tracking-wider px-3 py-1.5 rounded-lg transition-all hover:scale-[1.02] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E3A857]"
-                  style={{
-                    backgroundColor: `${FOOD_ACCENT}18`,
-                    color:            FOOD_ACCENT,
-                    border:           `1px solid ${FOOD_ACCENT}35`,
-                  }}
-                >
-                  Similar
-                </button>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
 // ── TasteProfileModule (unchanged structure, updated styles) ─────────
 
 export function TasteProfileModule() {
@@ -660,9 +475,9 @@ export function TasteProfileModule() {
   )
 
   // Calculate Convergence Score
-  const domains = ['spotify', 'anime', 'restaurants'];
+  const domains = ['spotify', 'anime', 'tourism'];
   const activeDomains = domains.filter(d => Object.keys(profile.breakdown?.[d] || {}).length > 0).length;
-  const baseScore = activeDomains === 3 ? 80 : activeDomains === 2 ? 50 : 20;
+  const baseScore = activeDomains >= 3 ? 90 : activeDomains === 2 ? 80 : activeDomains === 1 ? 50 : 20;
 
   const allGenres: Record<string, number> = {};
   domains.forEach(d => {
@@ -671,10 +486,22 @@ export function TasteProfileModule() {
     });
   });
   
-  const overlapping = Object.values(allGenres).filter(c => c > 1).length;
+  const overlapping = Object.values(allGenres).filter(c => (c as number) > 1).length;
   const total = Object.keys(allGenres).length;
   const bonus = total > 0 ? Math.round((overlapping / total) * 20) : 0;
   const convergenceScore = Math.min(100, baseScore + bonus);
+
+  // Generate real data for the Ring Chart
+  const musicCount = Object.keys(profile.breakdown?.['spotify'] || {}).length;
+  const animeCount = Object.keys(profile.breakdown?.['anime'] || {}).length;
+  const tourismCount = Object.keys(profile.breakdown?.['tourism'] || profile.breakdown?.['spots'] || {}).length;
+  const maxCount = Math.max(10, musicCount, animeCount, tourismCount);
+
+  const ringData = [
+    { label: "Music", value: musicCount, maxValue: maxCount },
+    { label: "Anime", value: animeCount, maxValue: maxCount },
+    { label: "Places", value: tourismCount, maxValue: maxCount },
+  ];
 
   // Convert profile object to sorted array for display
   const topGenres = Object.entries(profile.profile || {})
@@ -685,7 +512,7 @@ export function TasteProfileModule() {
     <div className="max-w-4xl mx-auto space-y-8">
       {/* Header & Halo */}
       <div className="flex flex-col items-center justify-center py-8">
-        <ConvergenceHalo score={convergenceScore} />
+        <ConvergenceHalo score={convergenceScore} data={ringData} />
         <div className="text-center mt-6 space-y-2">
           <h2 className="text-2xl font-display font-bold text-foreground">
             Your Taste Profile
@@ -713,8 +540,8 @@ export function TasteProfileModule() {
         </ProfileCard>
 
         <div className="space-y-6">
-          <div style={GLASS_PANEL}>
-            <div className="px-5 py-4 border-b border-white/[0.06]">
+          <Card className="relative overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#E4E4E7] dark:border-[#27272A]">
               <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-foreground">
                 Domain Activity
               </h3>
@@ -722,23 +549,20 @@ export function TasteProfileModule() {
             <div className="p-5 flex gap-8">
               <StatBlock label="Anime Liked"      value={Object.keys(profile.breakdown?.anime || {}).length}       color="#FF7A59" />
               <StatBlock label="AniList Genres"   value={Object.keys(profile.breakdown?.anilist || {}).length}     color="#4A90E2" />
-              <StatBlock label="Foods Liked"      value={Object.keys(profile.breakdown?.restaurants || {}).length}  color="#E3A857" />
+              <StatBlock label="Places Rated"     value={tourismCount}                                             color="#E3A857" />
             </div>
-          </div>
+          </Card>
           
-          <div style={GLASS_PANEL} className="p-5">
-             <div className="flex items-center gap-3">
-               <div
-                 className="w-2 h-2 rounded-full"
-                 style={{ backgroundColor: "#7C6CF0", boxShadow: "0 0 6px #7C6CF0" }}
-               />
+          <Card className="p-5 relative overflow-hidden">
+             <LineRail domain="music" />
+             <div className="flex items-center gap-3 pl-3">
                <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-foreground">
                  Spotify Connection
                </h3>
              </div>
              <p className="text-sm font-sans text-muted-foreground mt-2">
                {profile.spotify_connected 
-                 ? "Your music taste is actively influencing your recommendations across anime and food."
+                 ? "Your music taste is actively influencing your recommendations across anime."
                  : "Connect Spotify to unlock full cross-domain convergence."}
              </p>
              {!profile.spotify_connected && (
@@ -750,14 +574,11 @@ export function TasteProfileModule() {
                  Connect Spotify
                </Button>
              )}
-          </div>
+          </Card>
 
-          <div style={GLASS_PANEL} className="p-5">
-             <div className="flex items-center gap-3">
-               <div
-                 className="w-2 h-2 rounded-full"
-                 style={{ backgroundColor: "#4A90E2", boxShadow: "0 0 6px #4A90E2" }}
-               />
+          <Card className="p-5 relative overflow-hidden">
+             <LineRail domain="anime" />
+             <div className="flex items-center gap-3 pl-3">
                <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-foreground">
                  AniList Connection
                </h3>
@@ -776,17 +597,14 @@ export function TasteProfileModule() {
                  Connect AniList
                </Button>
              )}
-          </div>
+          </Card>
         </div>
       </div>
 
       {profile.anilist_watched && profile.anilist_watched.length > 0 && (
-        <div style={GLASS_PANEL} className="p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div
-              className="w-2 h-2 rounded-full"
-              style={{ backgroundColor: "#4A90E2", boxShadow: "0 0 6px #4A90E2" }}
-            />
+        <Card className="p-5 relative overflow-hidden">
+          <LineRail domain="anime" />
+          <div className="flex items-center gap-3 mb-4 pl-3">
             <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-foreground">
               Watched on AniList
             </h3>
@@ -795,7 +613,7 @@ export function TasteProfileModule() {
             {profile.anilist_watched.map((item: any) => (
               <div 
                 key={item.mal_id} 
-                className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] flex flex-col justify-between"
+                className="p-3 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-[#E4E4E7] dark:border-[#27272A] flex flex-col justify-between"
               >
                 <span className="text-sm font-sans font-medium text-foreground line-clamp-1">{item.title}</span>
                 <div className="flex items-center justify-between mt-2 text-xs font-mono">
@@ -809,7 +627,7 @@ export function TasteProfileModule() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       )}
     </div>
   )
@@ -817,14 +635,11 @@ export function TasteProfileModule() {
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
-function SectionHeader({ title, color }: { title: string; color: string }) {
+function SectionHeader({ title }: { title: string; color?: string }) {
   return (
     <div className="flex items-center gap-3 mb-4">
-      <div
-        className="w-2 h-2 rounded-full"
-        style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}` }}
-      />
-      <h2 className="text-base font-display font-semibold tracking-wide uppercase text-foreground">
+      <LineRail domain="anime" />
+      <h2 className="text-base font-display font-semibold tracking-wide uppercase text-foreground pl-3">
         {title}
       </h2>
     </div>
@@ -839,16 +654,16 @@ function ProfileCard({
   children: React.ReactNode
 }) {
   return (
-    <div className="overflow-hidden" style={GLASS_PANEL}>
-      <div className="px-5 py-4 border-b border-white/[0.06]">
+    <Card className="overflow-hidden relative">
+      <div className="px-5 py-4 border-b border-[#E4E4E7] dark:border-[#27272A] pl-6">
         <h3 className="text-sm font-display font-semibold uppercase tracking-wide text-foreground">
           {title}
         </h3>
       </div>
-      <div className="p-5">
+      <div className="p-5 pl-6">
         <ul className="space-y-2">{children}</ul>
       </div>
-    </div>
+    </Card>
   )
 }
 

@@ -1,42 +1,16 @@
 import os
 import pickle
-import torch
-import torch.nn as nn
 from typing import Optional, Dict, Any, Tuple
 import numpy as np
 
 # Adjust imports based on your project structure
-from models.anime_dnn import AnimeAutoEncoder
 from services.anilist_client import fetch_anime_metadata
 
 # ---------------------------------------------------------------------------
 # Global State & Model Loading
 # ---------------------------------------------------------------------------
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-vectorizer_path = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data",
-    "models",
-    "tfidf_vectorizer.pkl"
-)
-
-vectorizer = None
-if os.path.exists(vectorizer_path):
-    with open(vectorizer_path, 'rb') as f:
-        vectorizer = pickle.load(f)
-
-anime_model = AnimeAutoEncoder(input_dim=1000, latent_dim=32).to(device)
-_model_path = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data",
-    "models",
-    "anime_model.pth",
-)
-if os.path.exists(_model_path):
-    anime_model.load_state_dict(torch.load(_model_path, map_location=device))
-anime_model.eval()
 
 # Load 15,000 dataset embeddings
 _pkl_path = os.path.join(
@@ -45,6 +19,7 @@ _pkl_path = os.path.join(
     "processed",
     "anime_embeddings.pkl",
 )
+
 
 anime_data_map = {}
 latent_ids = []
@@ -59,11 +34,8 @@ if os.path.exists(_pkl_path):
         latent_ids.append(str(k))
         
     if latent_ids:
-        # Move to CPU tensor for fast batch cosine similarity 
-        latent_matrix = torch.tensor(
-            np.array([anime_data_map[aid]['embedding'] for aid in latent_ids]),
-            dtype=torch.float32
-        )
+        # Fast batch cosine similarity matrix as numpy array
+        latent_matrix = np.array([anime_data_map[aid]['embedding'] for aid in latent_ids], dtype=np.float32)
 
 # In-memory cache for dynamically computed cold-start embeddings
 cold_start_embeddings = {}
@@ -76,7 +48,7 @@ def get_or_compute_embedding(anime_id: int, metadata: dict = None) -> Tuple[Opti
     """
     Returns the 32-d latent embedding for an anime, its title, and its genres.
     If the anime is not in the precomputed set, it fetches metadata and computes
-    the embedding on the fly using the TF-IDF vectorizer and AutoEncoder.
+    the embedding on the fly using the SentenceTransformer and AutoEncoder.
     
     Returns (embedding, title, genres). 
     If metadata is too thin, embedding will be None.
@@ -125,7 +97,6 @@ def get_or_compute_embedding(anime_id: int, metadata: dict = None) -> Tuple[Opti
     combined_text = f"{synopsis} {genres_str} {tags_str}"
     
     # 5. Check for thin metadata (less than 20 words/tokens after basic splitting)
-    # The actual vectorizer does more complex tokenization, but a simple split is a good proxy.
     import re
     cleaned = re.sub(r'[^a-zA-Z0-9\s]', '', combined_text.lower())
     tokens = cleaned.split()
@@ -134,23 +105,6 @@ def get_or_compute_embedding(anime_id: int, metadata: dict = None) -> Tuple[Opti
         print(f"[cold-start] Anime {anime_id} has thin metadata ({len(tokens)} tokens). Skipping embedding.")
         return None, title, genres_list
         
-    # 6. Transform and encode
-    if vectorizer is None or anime_model is None:
-        print("[cold-start] Model or vectorizer not loaded.")
-        return None, title, genres_list
-        
-    # NEVER use fit_transform here, only transform
-    tf_idf_matrix = vectorizer.transform([combined_text]).toarray()
-    tf_idf_tensor = torch.tensor(tf_idf_matrix, dtype=torch.float32).to(device)
-    
-    with torch.no_grad():
-        embedding = anime_model.encode(tf_idf_tensor).cpu().numpy()[0]
-        
-    # 7. Cache it
-    cold_start_embeddings[str_id] = {
-        'embedding': embedding,
-        'title': title,
-        'genres': genres_list
-    }
-    
-    return embedding, title, genres_list
+    # 6. Live SentenceTransformer encoding is disabled in production
+    print(f"[cold-start] Live embedding generation disabled for anime {anime_id}. Falling back to metadata.")
+    return None, title, genres_list
