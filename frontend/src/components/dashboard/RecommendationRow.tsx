@@ -8,7 +8,7 @@ import { StationBadge, Card } from "../interchange"
 
 // ── Domain meta ──────────────────────────────────────────────────────
 
-const DOMAIN: Record<Category, {
+export const DOMAIN: Record<Category, {
   icon: React.ElementType
   domainKey: "anime" | "music"
   label: string
@@ -117,7 +117,7 @@ export function RecommendationRow({
 
 // ── Signal Card ──────────────────────────────────────────────────────
 
-function SignalCard({
+export function SignalCard({
   item,
   index,
   category,

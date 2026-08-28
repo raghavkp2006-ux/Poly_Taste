@@ -16,6 +16,7 @@ import { Card, LineRail } from "./components/interchange"
 import { ThemeProvider } from "./components/ui/ThemeProvider"
 import { ThemeToggleButton } from "./components/ui/ThemeToggleButton"
 import { TouristSpotsPage } from "./pages/TouristSpotsPage"
+import { SignalCard, DOMAIN } from "./components/dashboard/RecommendationRow"
 import type { PageId } from "./types"
 
 // ── Domain accent constants ──────────────────────────────────────────
@@ -228,7 +229,7 @@ function DashboardLayout({
         )}
         {currentPage === "music" && (
           <PageWrapper title="Music Recommendations">
-            <MusicRecommendationsPage />
+            <MusicRecommendationsPage isConnected={connections?.spotify ?? false} />
           </PageWrapper>
         )}
         {currentPage === "places" && (
@@ -287,7 +288,7 @@ function SettingsSection() {
   )
 }
 
-function MusicRecommendationsPage() {
+function MusicRecommendationsPage({ isConnected }: { isConnected: boolean }) {
   const [recommendations, setRecommendations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -306,43 +307,42 @@ function MusicRecommendationsPage() {
   if (recommendations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
-        <p className="text-sm text-muted-foreground max-w-sm">
-          Connect Spotify and sync your history to get personalized music recommendations.
-        </p>
-        <div className="flex gap-3 mt-2">
-          <Button
-            onClick={() => window.location.href = api.auth.loginUrl}
-            style={{ backgroundColor: "#1DB954", color: "#fff" }}
-          >
-            Connect Spotify
-          </Button>
-        </div>
+        {!isConnected ? (
+          <>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Connect Spotify to get personalized music recommendations based on your listening history.
+            </p>
+            <div className="flex gap-3 mt-2">
+              <Button
+                onClick={() => window.location.href = api.auth.loginUrl}
+                style={{ backgroundColor: "#1DB954", color: "#fff" }}
+              >
+                Connect Spotify
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Your Spotify is connected, but we don't have enough signals yet. Make sure you've synced your recently played history in the Taste Profile page!
+            </p>
+          </>
+        )}
       </div>
     )
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
-      {recommendations.map(r => (
-        <a 
+    <div className="flex flex-wrap gap-4 p-4">
+      {recommendations.map((r, i) => (
+        <SignalCard 
           key={r.id} 
-          href={r.url} 
-          target="_blank" 
-          rel="noreferrer"
-          className="flex flex-col gap-2 p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors border border-transparent hover:border-black/10 dark:hover:border-white/10"
-        >
-          {r.imageUrl ? (
-            <img src={r.imageUrl} alt={r.title} className="w-full aspect-square object-cover rounded-lg shadow-sm" />
-          ) : (
-            <div className="w-full aspect-square bg-black/10 dark:bg-white/10 rounded-lg flex items-center justify-center">
-              <span className="text-2xl text-muted-foreground">♪</span>
-            </div>
-          )}
-          <div className="flex flex-col">
-            <span className="font-semibold text-sm truncate">{r.title}</span>
-            <span className="text-xs text-muted-foreground truncate">{r.description}</span>
-          </div>
-        </a>
+          item={r} 
+          index={i} 
+          category="music"
+          meta={DOMAIN.music}
+          onNavigate={() => {}}
+        />
       ))}
     </div>
   )
