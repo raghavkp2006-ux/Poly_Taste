@@ -12,3 +12,4 @@ itsdangerous
 kagglehub
 numpy
 psycopg2-binary
+apscheduler

@@ -115,5 +115,23 @@ export const api = {
         body: JSON.stringify({ rating, ...(tag ? { tag } : {}) }),
       }),
   },
+  spotify: {
+    getMusicFeed: (limit = 50) =>
+      fetchApi<{ items: MusicTrack[]; count: number }>(`/spotify/music-feed?limit=${limit}`),
+    getSyncStatus: () =>
+      fetchApi<{ sync_enabled: boolean; last_synced_at: string | null }>("/spotify/sync/status"),
+    triggerSync: () =>
+      fetchApi<Record<string, unknown>>("/spotify/sync/trigger", { method: "POST" }),
+  },
+}
+
+export interface MusicTrack {
+  track_id: string
+  track_name: string
+  artist_names: string[]
+  album_name: string | null
+  album_image_url: string | null
+  played_at: string | null
+  duration_ms: number | null
 }
 

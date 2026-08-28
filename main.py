@@ -1,17 +1,29 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, Response
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from database import get_dynamodb_resource
 from routers import google_auth, spotify, spotify_import, anime, taste, anilist, connections, tourist_spots, movie, dining
 from services.auth import get_current_user_id, create_session_cookie
+from services.spotify_scheduler import start_scheduler, stop_scheduler
 from pydantic import BaseModel
 from fastapi import HTTPException
 
-app = FastAPI(title="Multi-Module Recommendation App")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: launch background scheduler
+    start_scheduler()
+    yield
+    # Shutdown: stop scheduler gracefully
+    stop_scheduler()
+
+
+app = FastAPI(title="Multi-Module Recommendation App", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -59,6 +71,18 @@ def login(req: LoginRequest, response: Response):
 def logout(response: Response):
     response.delete_cookie(key="session", httponly=True, samesite="lax")
     return {"message": "Logged out successfully"}
+
+@app.get("/api/activity")
+def get_activity():
+    return []
+
+@app.get("/api/recent")
+def get_recent():
+    return []
+
+@app.get("/api/recommendations")
+def get_recommendations(category: str | None = None):
+    return []
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

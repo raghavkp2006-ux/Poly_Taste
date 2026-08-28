@@ -9,7 +9,13 @@ from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
 
 from services.auth import create_session_cookie, get_current_user_id, create_state_token, verify_state_token
-from database import get_user, upsert_user, delete_user
+from database import get_user, upsert_user, delete_user, SessionLocal, SpotifyUser, SpotifyPlayEvent
+from services.spotify_sync import (
+    get_auth_header,
+    refresh_spotify_token,
+    get_valid_access_token,
+    sync_user_recent_plays,
+)
 
 load_dotenv()
 
@@ -260,54 +266,68 @@ def score_candidates(
 
 
 # ===========================================================================
-# AUTH HELPERS
+# ROUTES — Sync (Manual Trigger + Status)
 # ===========================================================================
 
-def get_auth_header() -> Dict[str, str]:
-    auth_str = f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}"
-    b64_auth_str = base64.b64encode(auth_str.encode()).decode()
-    return {"Authorization": f"Basic {b64_auth_str}"}
+@router.post("/sync/trigger")
+def trigger_spotify_sync(user_id: str = Depends(get_current_user_id)):
+    """Manually trigger an immediate sync for the authenticated user."""
+    return sync_user_recent_plays(user_id)
 
 
-def refresh_spotify_token(user: Dict[str, Any]) -> str:
-    url = "https://accounts.spotify.com/api/token"
-    headers = get_auth_header()
-    headers["Content-Type"] = "application/x-www-form-urlencoded"
-    data = {
-        "grant_type": "refresh_token",
-        "refresh_token": user.get("refresh_token"),
-    }
-    response = requests.post(url, headers=headers, data=data)
-    if response.status_code != 200:
-        raise HTTPException(status_code=400, detail="Failed to refresh token")
-
-    token_info = response.json()
-    new_access_token = token_info["access_token"]
-    new_refresh_token = token_info.get("refresh_token", user.get("refresh_token"))
-    new_expires_at = int(time.time()) + token_info["expires_in"]
-
-    upsert_user(
-        user["user_id"],
-        new_access_token,
-        new_refresh_token,
-        new_expires_at,
-        user.get("spotify_account_id"),
-        user.get("spotify_display_name")
-    )
-    return new_access_token
+@router.get("/sync/status")
+def get_sync_status(user_id: str = Depends(get_current_user_id)):
+    """Return sync state for the authenticated user."""
+    db = SessionLocal()
+    try:
+        row = db.query(SpotifyUser).filter(SpotifyUser.user_id == user_id).first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Spotify account not connected")
+        return {
+            "sync_enabled": bool(row.sync_enabled),
+            "last_synced_at": row.last_synced_at.isoformat() if row.last_synced_at else None,
+        }
+    finally:
+        db.close()
 
 
-def get_valid_access_token(user_id: str) -> str:
-    """Return a valid Spotify access token for *user_id*, refreshing if needed."""
-    user = get_user(user_id)
-    if not user:
-        raise HTTPException(
-            status_code=401,
-            detail="User not logged in with Spotify. Please visit /spotify/login",
+@router.get("/music-feed")
+def get_music_feed(
+    limit: int = 50,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Return the authenticated user's recently played tracks from the local DB,
+    ordered newest first. No live Spotify API call — reads from spotify_play_events.
+    """
+    import json as _json
+    db = SessionLocal()
+    try:
+        events = (
+            db.query(SpotifyPlayEvent)
+            .filter(SpotifyPlayEvent.user_id == user_id)
+            .order_by(SpotifyPlayEvent.played_at.desc())
+            .limit(limit)
+            .all()
         )
-    if int(time.time()) > int(user.get("expires_at", 0)):
-        return refresh_spotify_token(user)
-    return user.get("access_token")
+        items = []
+        for e in events:
+            try:
+                artist_names = _json.loads(e.artist_names_json) if e.artist_names_json else []
+            except Exception:
+                artist_names = []
+            items.append({
+                "track_id": e.track_id,
+                "track_name": e.track_name,
+                "artist_names": artist_names,
+                "album_name": e.album_name,
+                "album_image_url": e.album_image_url,
+                "played_at": e.played_at.isoformat() if e.played_at else None,
+                "duration_ms": e.duration_ms,
+            })
+        return {"items": items, "count": len(items)}
+    finally:
+        db.close()
 
 
 # ===========================================================================
@@ -324,6 +344,7 @@ def login_to_spotify(user_id: str = Depends(get_current_user_id)):
         f"&scope={scope}"
         f"&redirect_uri={SPOTIFY_REDIRECT_URI}"
         f"&state={state}"
+        f"&show_dialog=true"
     )
     return RedirectResponse(url)
 
@@ -373,6 +394,18 @@ def spotify_callback(code: str | None = None, state: str | None = None, error: s
         spotify_account_id=spotify_account_id,
         spotify_display_name=spotify_display_name
     )
+
+    # Enable background sync now that we have a valid token
+    _db = SessionLocal()
+    try:
+        row = _db.query(SpotifyUser).filter(SpotifyUser.user_id == user_id).first()
+        if row:
+            row.sync_enabled = True
+            _db.commit()
+    except Exception as _e:
+        print(f"[spotify_callback] Could not enable sync: {_e}")
+    finally:
+        _db.close()
 
     FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
     return RedirectResponse(f"{FRONTEND_URL}/dashboard?spotify=connected")
