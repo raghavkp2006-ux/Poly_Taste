@@ -251,7 +251,17 @@ def _fetch_spotify_genre_profile(
     except Exception as exc:
         print(f"[taste_profile] Spotify fetch error: {exc}")
 
-    # Fallback: if live fetch returned nothing, check for an imported profile
+    # Fallback 1: check synced play history in database
+    if not profile:
+        try:
+            from routers.spotify import get_genre_profile_from_history
+            profile = get_genre_profile_from_history(user_id, token)
+            if profile:
+                print(f"[taste_profile] Using synced play-history profile for {user_id}")
+        except Exception as exc:
+            print(f"[taste_profile] Play-history fallback error: {exc}")
+
+    # Fallback 2: if still nothing, check for an uploaded streaming-history file profile
     if not profile:
         try:
             from database import get_spotify_import_profile

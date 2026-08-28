@@ -16,6 +16,7 @@ import { Card, LineRail } from "./components/interchange"
 import { ThemeProvider } from "./components/ui/ThemeProvider"
 import { ThemeToggleButton } from "./components/ui/ThemeToggleButton"
 import { TouristSpotsPage } from "./pages/TouristSpotsPage"
+import { SignalCard, DOMAIN } from "./components/dashboard/RecommendationRow"
 import type { PageId } from "./types"
 
 // ── Domain accent constants ──────────────────────────────────────────
@@ -227,8 +228,8 @@ function DashboardLayout({
           </PageWrapper>
         )}
         {currentPage === "music" && (
-          <PageWrapper title="Music">
-            <MusicSection />
+          <PageWrapper title="Music Recommendations">
+            <MusicRecommendationsPage isConnected={connections?.spotify ?? false} />
           </PageWrapper>
         )}
         {currentPage === "places" && (
@@ -287,33 +288,134 @@ function SettingsSection() {
   )
 }
 
+function MusicRecommendationsPage({ isConnected }: { isConnected: boolean }) {
+  const [recommendations, setRecommendations] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    api.recommendations.getByCategory("music")
+      .then((recs) => setRecommendations(recs))
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-muted-foreground" size={24} /></div>
+  }
+
+  if (recommendations.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+        {!isConnected ? (
+          <>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Connect Spotify to get personalized music recommendations based on your listening history.
+            </p>
+            <div className="flex gap-3 mt-2">
+              <Button
+                onClick={() => window.location.href = api.auth.loginUrl}
+                style={{ backgroundColor: "#1DB954", color: "#fff" }}
+              >
+                Connect Spotify
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Your Spotify is connected, but we don't have enough signals yet. Make sure you've synced your recently played history in the Taste Profile page!
+            </p>
+          </>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap gap-4 p-4">
+      {recommendations.map((r, i) => (
+        <SignalCard 
+          key={r.id} 
+          item={r} 
+          index={i} 
+          category="music"
+          meta={DOMAIN.music}
+          onNavigate={() => {}}
+        />
+      ))}
+    </div>
+  )
+}
+
 // ── Music section ────────────────────────────────────────────────────
 
-function MusicSection() {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 text-center gap-6">
-      {/* Icon ring */}
-      <div
-        className="w-16 h-16 flex items-center justify-center rounded-full"
-        style={{
-          background: `linear-gradient(135deg, ${MUSIC_ACCENT}30, transparent)`,
-          border: `1px solid ${MUSIC_ACCENT}40`,
-          boxShadow: `0 0 32px ${MUSIC_ACCENT}30`,
-        }}
-      >
-        <span style={{ fontSize: 28, color: MUSIC_ACCENT }}>♪</span>
-      </div>
+function MusicSection({ isConnected }: { isConnected?: boolean }) {
+  type Track = import("./api").MusicTrack
+  const [tracks, setTracks] = useState<Track[]>([])
+  const [syncStatus, setSyncStatus] = useState<{ sync_enabled: boolean; last_synced_at: string | null } | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [syncMsg, setSyncMsg] = useState<string | null>(null)
 
-      <div className="space-y-2">
-        <h2 className="text-xl font-display font-bold text-foreground">
-          No music signals yet
-        </h2>
-        <p className="text-sm font-sans max-w-sm text-muted-foreground">
-          Connect Spotify to activate your music signal — we'll learn your vibe from every listen.
-        </p>
-      </div>
+  useEffect(() => {
+    if (!isConnected) return
+    setLoading(true)
+    Promise.all([
+      api.spotify.getMusicFeed(50).catch(() => ({ items: [], count: 0 })),
+      api.spotify.getSyncStatus().catch(() => null),
+    ]).then(([feed, status]) => {
+      setTracks(feed.items)
+      setSyncStatus(status)
+    }).finally(() => setLoading(false))
+  }, [isConnected])
 
-      <div className="flex flex-col gap-2 items-center">
+  function handleSync() {
+    setSyncing(true)
+    setSyncMsg(null)
+    api.spotify.triggerSync()
+      .then((res: any) => {
+        const statusMsgMap: Record<string, string> = {
+          ok: `Synced ${res.new_tracks ?? 0} new tracks ✓`,
+          already_up_to_date: "Already up to date",
+          no_new_plays: "Already up to date",
+          sync_disabled: "Sync not enabled — reconnect Spotify",
+          token_invalid: "Spotify token expired — reconnect Spotify",
+        }
+        setSyncMsg(statusMsgMap[res.status] ?? res.status ?? "Done")
+        return api.spotify.getMusicFeed(50)
+      })
+      .then(feed => setTracks(feed.items))
+      .catch((e: any) => setSyncMsg(e.message ?? "Sync failed"))
+      .finally(() => setSyncing(false))
+  }
+
+  function fmtTime(iso: string | null) {
+    if (!iso) return ""
+    try {
+      return new Date(iso + "Z").toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    } catch { return iso }
+  }
+
+  if (!isConnected) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center gap-6">
+        <div
+          className="w-16 h-16 flex items-center justify-center rounded-full"
+          style={{
+            background: `linear-gradient(135deg, ${MUSIC_ACCENT}30, transparent)`,
+            border: `1px solid ${MUSIC_ACCENT}40`,
+            boxShadow: `0 0 32px ${MUSIC_ACCENT}30`,
+          }}
+        >
+          <span style={{ fontSize: 28, color: MUSIC_ACCENT }}>♪</span>
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-display font-bold text-foreground">No music signals yet</h2>
+          <p className="text-sm font-sans max-w-sm text-muted-foreground">
+            Connect Spotify to activate your music signal — we'll learn your vibe from every listen.
+          </p>
+        </div>
         <a
           href={api.auth.loginUrl}
           className="inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-sans font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C6CF0] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0E14]"
@@ -326,11 +428,118 @@ function MusicSection() {
         >
           Connect Spotify
         </a>
-        <a href={api.anilist.loginUrl}>Connect AniList</a>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-4 py-4">
+      {/* Header row */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2">
+          <span style={{ fontSize: 20, color: MUSIC_ACCENT }}>♪</span>
+          <span className="text-sm font-display font-semibold text-foreground">
+            Recently Played
+            {tracks.length > 0 && <span className="ml-1 text-muted-foreground font-normal">({tracks.length})</span>}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          {syncStatus?.last_synced_at && (
+            <span className="text-xs text-muted-foreground hidden sm:block">
+              Last sync {fmtTime(syncStatus.last_synced_at)}
+            </span>
+          )}
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="text-xs rounded-lg px-3 py-1.5 font-sans font-medium transition-all duration-150 hover:scale-[1.02] active:scale-[0.97] disabled:opacity-50"
+            style={{
+              backgroundColor: `${MUSIC_ACCENT}15`,
+              color: MUSIC_ACCENT,
+              border: `1px solid ${MUSIC_ACCENT}30`,
+            }}
+          >
+            {syncing ? "Syncing…" : "↻ Sync now"}
+          </button>
+        </div>
+      </div>
+
+      {syncMsg && (
+        <p className="text-xs text-center" style={{ color: MUSIC_ACCENT }}>{syncMsg}</p>
+      )}
+
+      {/* Track list */}
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <Loader2 className="animate-spin text-muted-foreground" size={22} />
+        </div>
+      ) : tracks.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+          <p className="text-sm text-muted-foreground max-w-xs">
+            {syncStatus?.last_synced_at
+              ? "We synced your Spotify, but didn't find any recently finished tracks. Play some music and check back! (Note: Spotify only syncs tracks after they finish playing)"
+              : "Your Spotify is connected but no play history is synced yet. Hit Sync now to pull in your recent listens."}
+          </p>
+          <a
+            href={api.auth.loginUrl}
+            className="text-xs underline underline-offset-2"
+            style={{ color: MUSIC_ACCENT }}
+          >
+            Reconnect Spotify
+          </a>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1">
+          {tracks.map((t, i) => (
+            <div
+              key={`${t.track_id}-${i}`}
+              className="flex items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-white/5"
+            >
+              {/* Album art */}
+              {t.album_image_url ? (
+                <img
+                  src={t.album_image_url}
+                  alt={t.album_name ?? ""}
+                  className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                  style={{ boxShadow: `0 2px 8px ${MUSIC_ACCENT}20` }}
+                />
+              ) : (
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: `${MUSIC_ACCENT}20`, border: `1px solid ${MUSIC_ACCENT}30` }}
+                >
+                  <span style={{ fontSize: 16, color: MUSIC_ACCENT }}>♪</span>
+                </div>
+              )}
+
+              {/* Track info */}
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-sm font-sans font-medium text-foreground truncate">{t.track_name}</span>
+                <span className="text-xs text-muted-foreground truncate">{t.artist_names.join(", ")}</span>
+              </div>
+
+              {/* Played time */}
+              <span className="text-xs text-muted-foreground flex-shrink-0 hidden sm:block">
+                {fmtTime(t.played_at)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Reconnect link */}
+      <div className="pt-2 text-center">
+        <a
+          href={api.auth.loginUrl}
+          className="text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Reconnect Spotify
+        </a>
       </div>
     </div>
   )
 }
+
 
 // ── Anime sub-module ─────────────────────────────────────────────────
 
@@ -573,6 +782,12 @@ export function TasteProfileModule() {
                >
                  Connect Spotify
                </Button>
+             )}
+             
+             {profile.spotify_connected && (
+               <div className="mt-6 border-t border-[#E4E4E7] dark:border-[#27272A] pt-4">
+                 <MusicSection isConnected={true} />
+               </div>
              )}
           </Card>
 

@@ -9,7 +9,13 @@ from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
 
 from services.auth import create_session_cookie, get_current_user_id, create_state_token, verify_state_token
-from database import get_user, upsert_user, delete_user
+from database import get_user, upsert_user, delete_user, SessionLocal, SpotifyUser, SpotifyPlayEvent
+from services.spotify_sync import (
+    get_auth_header,
+    refresh_spotify_token,
+    get_valid_access_token,
+    sync_user_recent_plays,
+)
 
 load_dotenv()
 
@@ -208,6 +214,7 @@ def search_candidates(
                     "name": item.get("name", ""),
                     "artists": [a["name"] for a in item.get("artists", [])],
                     "album": item.get("album", {}).get("name", ""),
+                    "image_url": (item.get("album", {}).get("images", []) + [{}])[0].get("url"),
                 })
         except Exception as e:
             print(f"[spotify] search_candidates({genre}): {e}")
@@ -259,55 +266,156 @@ def score_candidates(
     return score_candidate_tracks(candidates, user_profile, track_genres_map)
 
 
-# ===========================================================================
-# AUTH HELPERS
-# ===========================================================================
-
-def get_auth_header() -> Dict[str, str]:
-    auth_str = f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}"
-    b64_auth_str = base64.b64encode(auth_str.encode()).decode()
-    return {"Authorization": f"Basic {b64_auth_str}"}
-
-
-def refresh_spotify_token(user: Dict[str, Any]) -> str:
-    url = "https://accounts.spotify.com/api/token"
-    headers = get_auth_header()
-    headers["Content-Type"] = "application/x-www-form-urlencoded"
-    data = {
-        "grant_type": "refresh_token",
-        "refresh_token": user.get("refresh_token"),
-    }
-    response = requests.post(url, headers=headers, data=data)
-    if response.status_code != 200:
-        raise HTTPException(status_code=400, detail="Failed to refresh token")
-
-    token_info = response.json()
-    new_access_token = token_info["access_token"]
-    new_refresh_token = token_info.get("refresh_token", user.get("refresh_token"))
-    new_expires_at = int(time.time()) + token_info["expires_in"]
-
-    upsert_user(
-        user["user_id"],
-        new_access_token,
-        new_refresh_token,
-        new_expires_at,
-        user.get("spotify_account_id"),
-        user.get("spotify_display_name")
-    )
-    return new_access_token
+def fetch_artists_bulk(artist_ids: List[str], token: str) -> List[Dict[str, Any]]:
+    """Fetch up to 50 artists in a single bulk call from Spotify API."""
+    if not artist_ids:
+        return []
+    headers = {"Authorization": f"Bearer {token}"}
+    artists = []
+    # Spotify bulk endpoint allows max 50 ids per request
+    for i in range(0, len(artist_ids), 50):
+        chunk = artist_ids[i : i + 50]
+        url = f"https://api.spotify.com/v1/artists?ids={','.join(chunk)}"
+        try:
+            resp = requests.get(url, headers=headers, timeout=6)
+            if resp.status_code == 200:
+                artists.extend(resp.json().get("artists", []))
+            else:
+                print(f"[spotify] fetch_artists_bulk error: status {resp.status_code}")
+        except Exception as e:
+            print(f"[spotify] fetch_artists_bulk exception: {e}")
+    return [a for a in artists if a]
 
 
-def get_valid_access_token(user_id: str) -> str:
-    """Return a valid Spotify access token for *user_id*, refreshing if needed."""
-    user = get_user(user_id)
-    if not user:
-        raise HTTPException(
-            status_code=401,
-            detail="User not logged in with Spotify. Please visit /spotify/login",
+def get_genre_profile_from_history(user_id: str, token: str, limit: int = 50) -> Dict[str, float]:
+    """Build a weighted genre profile from the user's recently played history in the DB."""
+    db = SessionLocal()
+    try:
+        events = (
+            db.query(SpotifyPlayEvent)
+            .filter(SpotifyPlayEvent.user_id == user_id)
+            .order_by(SpotifyPlayEvent.played_at.desc())
+            .limit(limit)
+            .all()
         )
-    if int(time.time()) > int(user.get("expires_at", 0)):
-        return refresh_spotify_token(user)
-    return user.get("access_token")
+        if not events:
+            return {}
+
+        import json as _json
+        artist_id_counts = defaultdict(int)
+        artist_first_index = {}
+        unique_artist_ids = []
+
+        for idx, event in enumerate(events):
+            try:
+                aids = _json.loads(event.artist_ids_json) if event.artist_ids_json else []
+            except Exception:
+                aids = []
+            for aid in aids:
+                if aid not in artist_id_counts:
+                    unique_artist_ids.append(aid)
+                artist_id_counts[aid] += 1
+                if aid not in artist_first_index:
+                    artist_first_index[aid] = idx
+
+        if not unique_artist_ids:
+            return {}
+
+        # Fetch genre metadata for these artists in bulk
+        artists_data = fetch_artists_bulk(unique_artist_ids, token)
+        artist_by_id = {a["id"]: a for a in artists_data if "id" in a}
+
+        # Score artists by frequency + recency weight
+        artist_scores = {}
+        total_events = len(events)
+        for aid in unique_artist_ids:
+            freq = artist_id_counts[aid]
+            first_seen_idx = artist_first_index[aid]
+            recency_weight = (total_events - first_seen_idx) / total_events
+            artist_scores[aid] = freq * recency_weight
+
+        # Sort artists by computed score descending
+        sorted_aids = sorted(artist_scores, key=artist_scores.get, reverse=True)
+
+        # Build list of artist dicts ordered by score
+        sorted_artists = []
+        for aid in sorted_aids:
+            if aid in artist_by_id:
+                # Copy to avoid modifying cache
+                artist_copy = dict(artist_by_id[aid])
+                sorted_artists.append(artist_copy)
+
+        for artist in sorted_artists:
+            artist["genres"] = normalize_genres(artist.get("genres", []))
+
+        return compute_genre_profile(sorted_artists)
+    finally:
+        db.close()
+
+
+# ===========================================================================
+# ROUTES — Sync (Manual Trigger + Status)
+# ===========================================================================
+
+@router.post("/sync/trigger")
+def trigger_spotify_sync(user_id: str = Depends(get_current_user_id)):
+    """Manually trigger an immediate sync for the authenticated user."""
+    return sync_user_recent_plays(user_id)
+
+
+@router.get("/sync/status")
+def get_sync_status(user_id: str = Depends(get_current_user_id)):
+    """Return sync state for the authenticated user."""
+    db = SessionLocal()
+    try:
+        row = db.query(SpotifyUser).filter(SpotifyUser.user_id == user_id).first()
+        if not row:
+            raise HTTPException(status_code=404, detail="Spotify account not connected")
+        return {
+            "sync_enabled": bool(row.sync_enabled),
+            "last_synced_at": row.last_synced_at.isoformat() if row.last_synced_at else None,
+        }
+    finally:
+        db.close()
+
+
+@router.get("/music-feed")
+def get_music_feed(
+    limit: int = 50,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Return the authenticated user's recently played tracks from the local DB,
+    ordered newest first. No live Spotify API call — reads from spotify_play_events.
+    """
+    import json as _json
+    db = SessionLocal()
+    try:
+        events = (
+            db.query(SpotifyPlayEvent)
+            .filter(SpotifyPlayEvent.user_id == user_id)
+            .order_by(SpotifyPlayEvent.played_at.desc())
+            .limit(limit)
+            .all()
+        )
+        items = []
+        for e in events:
+            try:
+                artist_names = _json.loads(e.artist_names_json) if e.artist_names_json else []
+            except Exception:
+                artist_names = []
+            items.append({
+                "track_id": e.track_id,
+                "track_name": e.track_name,
+                "artist_names": artist_names,
+                "album_name": e.album_name,
+                "album_image_url": e.album_image_url,
+                "played_at": e.played_at.isoformat() if e.played_at else None,
+                "duration_ms": e.duration_ms,
+            })
+        return {"items": items, "count": len(items)}
+    finally:
+        db.close()
 
 
 # ===========================================================================
@@ -317,13 +425,14 @@ def get_valid_access_token(user_id: str) -> str:
 @router.get("/login")
 def login_to_spotify(user_id: str = Depends(get_current_user_id)):
     state = create_state_token(user_id)
-    scope = "user-top-read user-library-read"
+    scope = "user-top-read user-library-read user-read-recently-played"
     url = (
         f"https://accounts.spotify.com/authorize?response_type=code"
         f"&client_id={SPOTIFY_CLIENT_ID}"
         f"&scope={scope}"
         f"&redirect_uri={SPOTIFY_REDIRECT_URI}"
         f"&state={state}"
+        f"&show_dialog=true"
     )
     return RedirectResponse(url)
 
@@ -373,6 +482,20 @@ def spotify_callback(code: str | None = None, state: str | None = None, error: s
         spotify_account_id=spotify_account_id,
         spotify_display_name=spotify_display_name
     )
+
+    # Enable background sync and reset last_synced_at so the FIRST sync
+    # always fetches the full recently-played window (no stale 'after' cutoff).
+    _db = SessionLocal()
+    try:
+        row = _db.query(SpotifyUser).filter(SpotifyUser.user_id == user_id).first()
+        if row:
+            row.sync_enabled = True
+            row.last_synced_at = None   # ← forces fresh fetch on next sync
+            _db.commit()
+    except Exception as _e:
+        print(f"[spotify_callback] Could not enable sync: {_e}")
+    finally:
+        _db.close()
 
     FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
     return RedirectResponse(f"{FRONTEND_URL}/dashboard?spotify=connected")
@@ -438,16 +561,23 @@ def get_recommendations(limit: int = Query(default=10, ge=1, le=50), user_id: st
             status_code=artists_resp.status_code,
             detail="Failed to fetch top artists",
         )
-    artists = artists_resp.json().get("items", [])
+    artists = []
+    if artists_resp.status_code == 200:
+        artists = artists_resp.json().get("items", [])
 
+    user_profile = {}
     if not artists:
+        # Fallback to play history!
+        user_profile = get_genre_profile_from_history(user_id, token)
+    else:
+        # --- 2. Normalise genres and build profile ---
+        for artist in artists:
+            artist["genres"] = normalize_genres(artist.get("genres", []))
+        user_profile = compute_genre_profile(artists)
+
+    if not user_profile:
         return {"recommendations": [], "genre_profile": {}}
 
-    # --- 2. Normalise genres and build profile ---
-    for artist in artists:
-        artist["genres"] = normalize_genres(artist.get("genres", []))
-
-    user_profile = compute_genre_profile(artists)
     sorted_genres = sorted(user_profile, key=user_profile.get, reverse=True)
     top_genres = sorted_genres[:5]
 

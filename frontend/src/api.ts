@@ -83,8 +83,25 @@ export const api = {
     unlike: (mal_id: number) => fetchApi("/anime/" + mal_id + "/like", { method: "DELETE" }),
   },
   recommendations: {
-    getByCategory: (category: string) =>
-      fetchApi<import("./types").Recommendation[]>(`/api/recommendations?category=${category}`),
+    getByCategory: async (category: string) => {
+      if (category === "music") {
+        try {
+          const res = await fetchApi<{ recommendations: any[] }>("/spotify/recommendations");
+          return res.recommendations.map(r => ({
+            id: r.id,
+            title: r.name,
+            description: r.artists ? r.artists.join(", ") : "",
+            imageUrl: r.image_url,
+            score: r.score,
+            url: `https://open.spotify.com/track/${r.id}`
+          }));
+        } catch (e) {
+          console.error("Music recs error", e);
+          return [];
+        }
+      }
+      return fetchApi<import("./types").Recommendation[]>(`/api/recommendations?category=${category}`)
+    },
     getRecent: () =>
       fetchApi<import("./types").RecentItem[]>("/api/recent"),
     getActivity: () =>
@@ -115,5 +132,23 @@ export const api = {
         body: JSON.stringify({ rating, ...(tag ? { tag } : {}) }),
       }),
   },
+  spotify: {
+    getMusicFeed: (limit = 50) =>
+      fetchApi<{ items: MusicTrack[]; count: number }>(`/spotify/music-feed?limit=${limit}`),
+    getSyncStatus: () =>
+      fetchApi<{ sync_enabled: boolean; last_synced_at: string | null }>("/spotify/sync/status"),
+    triggerSync: () =>
+      fetchApi<Record<string, unknown>>("/spotify/sync/trigger", { method: "POST" }),
+  },
+}
+
+export interface MusicTrack {
+  track_id: string
+  track_name: string
+  artist_names: string[]
+  album_name: string | null
+  album_image_url: string | null
+  played_at: string | null
+  duration_ms: number | null
 }
 
