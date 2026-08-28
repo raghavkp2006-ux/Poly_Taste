@@ -314,7 +314,14 @@ function MusicSection({ isConnected }: { isConnected?: boolean }) {
     setSyncMsg(null)
     api.spotify.triggerSync()
       .then((res: any) => {
-        setSyncMsg(res.status === "ok" ? `Synced ${res.new_tracks ?? 0} new tracks` : (res.status ?? "Done"))
+        const statusMsgMap: Record<string, string> = {
+          ok: `Synced ${res.new_tracks ?? 0} new tracks ✓`,
+          already_up_to_date: "Already up to date",
+          no_new_plays: "Already up to date",
+          sync_disabled: "Sync not enabled — reconnect Spotify",
+          token_invalid: "Spotify token expired — reconnect Spotify",
+        }
+        setSyncMsg(statusMsgMap[res.status] ?? res.status ?? "Done")
         return api.spotify.getMusicFeed(50)
       })
       .then(feed => setTracks(feed.items))

@@ -395,12 +395,14 @@ def spotify_callback(code: str | None = None, state: str | None = None, error: s
         spotify_display_name=spotify_display_name
     )
 
-    # Enable background sync now that we have a valid token
+    # Enable background sync and reset last_synced_at so the FIRST sync
+    # always fetches the full recently-played window (no stale 'after' cutoff).
     _db = SessionLocal()
     try:
         row = _db.query(SpotifyUser).filter(SpotifyUser.user_id == user_id).first()
         if row:
             row.sync_enabled = True
+            row.last_synced_at = None   # ← forces fresh fetch on next sync
             _db.commit()
     except Exception as _e:
         print(f"[spotify_callback] Could not enable sync: {_e}")

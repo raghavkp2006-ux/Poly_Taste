@@ -278,7 +278,10 @@ class SpotifyPlayEvent(Base):  # type: ignore[valid-type]
     track_id = Column(String, nullable=False, index=True)
     track_name = Column(String, nullable=True)
     artist_names_json = Column(String, nullable=True)   # JSON-encoded list of artist names
-    artist_ids_json = Column(String, nullable=True)     # JSON-encoded list of artist IDs — needed later to batch-fetch genres
+    artist_ids_json = Column(String, nullable=True)     # JSON-encoded list of artist IDs
+    album_name = Column(String, nullable=True)
+    album_image_url = Column(String, nullable=True)
+    duration_ms = Column(Integer, nullable=True)
     played_at = Column(DateTime, nullable=False, index=True)  # value from Spotify's played_at field
     synced_at = Column(DateTime, nullable=False, server_default=func.now())
 
@@ -291,6 +294,9 @@ class SpotifyPlayEvent(Base):  # type: ignore[valid-type]
             "track_name": self.track_name,
             "artist_names": _json.loads(self.artist_names_json) if self.artist_names_json else [],
             "artist_ids": _json.loads(self.artist_ids_json) if self.artist_ids_json else [],
+            "album_name": self.album_name,
+            "album_image_url": self.album_image_url,
+            "duration_ms": self.duration_ms,
             "played_at": self.played_at.isoformat() if self.played_at else None,
             "synced_at": self.synced_at.isoformat() if self.synced_at else None,
         }
@@ -311,6 +317,16 @@ try:
                 conn.execute(text("ALTER TABLE spotify_users ADD COLUMN sync_enabled BOOLEAN DEFAULT 0"))
             if "last_synced_at" not in columns:
                 conn.execute(text("ALTER TABLE spotify_users ADD COLUMN last_synced_at TIMESTAMP"))
+
+            # Migration for spotify_play_events new columns
+            pe_result = conn.execute(text("PRAGMA table_info(spotify_play_events)"))
+            pe_columns = [row[1] for row in pe_result]
+            if "album_name" not in pe_columns:
+                conn.execute(text("ALTER TABLE spotify_play_events ADD COLUMN album_name TEXT"))
+            if "album_image_url" not in pe_columns:
+                conn.execute(text("ALTER TABLE spotify_play_events ADD COLUMN album_image_url TEXT"))
+            if "duration_ms" not in pe_columns:
+                conn.execute(text("ALTER TABLE spotify_play_events ADD COLUMN duration_ms INTEGER"))
 
             # Migration for movies table
             m_result = conn.execute(text("PRAGMA table_info(movies)"))

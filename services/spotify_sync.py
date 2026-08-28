@@ -192,6 +192,13 @@ def sync_user_recent_plays(user_id: str) -> Dict[str, Any]:
             if not played_at_raw:
                 continue
 
+            # Album metadata
+            album = track.get("album") or {}
+            album_name = album.get("name")
+            images = album.get("images") or []
+            album_image_url = images[0].get("url") if images else None
+            duration_ms = track.get("duration_ms")
+
             played_at_dt = parse_spotify_datetime(played_at_raw)
             if max_played_at is None or played_at_dt > max_played_at:
                 max_played_at = played_at_dt
@@ -212,22 +219,32 @@ def sync_user_recent_plays(user_id: str) -> Dict[str, Any]:
                     track_name=track_name,
                     artist_names_json=json.dumps(artist_names),
                     artist_ids_json=json.dumps(artist_ids),
+                    album_name=album_name,
+                    album_image_url=album_image_url,
+                    duration_ms=duration_ms,
                     played_at=played_at_dt,
                 )
                 db.add(play_event)
                 new_plays_count += 1
 
-        # Step 6: Advance last_synced_at if plays were found
+        # Step 6: Always advance last_synced_at when Spotify returned items so the
+        # 'after' cursor moves forward even when all items were duplicates.
         if max_played_at:
             if not user_row.last_synced_at or max_played_at > user_row.last_synced_at:
                 user_row.last_synced_at = max_played_at
 
         db.commit()
 
-        status_str = "ok" if new_plays_count > 0 else "no_new_plays"
+        if new_plays_count > 0:
+            status_str = "ok"
+        else:
+            # items were returned by Spotify but all were already in the DB
+            status_str = "already_up_to_date"
+
         return {
             "user_id": user_id,
             "new_plays": new_plays_count,
+            "new_tracks": new_plays_count,   # alias for frontend
             "status": status_str,
         }
 
