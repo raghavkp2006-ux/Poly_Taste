@@ -11,6 +11,7 @@ Exports
 -------
   SessionLocal    — SQLAlchemy session factory
   SpotifyUser     — SQLAlchemy ORM model
+  SpotifyPlayEvent — SQLAlchemy ORM model
   User            — SQLAlchemy ORM model (Google identity)
   UserLike        — SQLAlchemy ORM model
   AniListUser     — SQLAlchemy ORM model
@@ -27,7 +28,7 @@ import time
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
 
-from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, UniqueConstraint, ForeignKey, text, func
+from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Boolean, UniqueConstraint, ForeignKey, text, func
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 
 _db_url = os.getenv("DATABASE_URL")
@@ -53,6 +54,8 @@ class SpotifyUser(Base):  # type: ignore[valid-type]
     expires_at = Column(Integer, nullable=False)
     spotify_account_id = Column(String, nullable=True)
     spotify_display_name = Column(String, nullable=True)
+    sync_enabled = Column(Boolean, default=False, nullable=True)
+    last_synced_at = Column(DateTime, nullable=True)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -62,6 +65,8 @@ class SpotifyUser(Base):  # type: ignore[valid-type]
             "expires_at": self.expires_at,
             "spotify_account_id": self.spotify_account_id,
             "spotify_display_name": self.spotify_display_name,
+            "sync_enabled": self.sync_enabled,
+            "last_synced_at": self.last_synced_at.isoformat() if self.last_synced_at else None,
         }
 
 class User(Base):  # type: ignore[valid-type]
@@ -260,6 +265,36 @@ class Movie(Base):  # type: ignore[valid-type]
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
+class SpotifyPlayEvent(Base):  # type: ignore[valid-type]
+    """ORM model for deduplicated incremental Spotify play history events."""
+
+    __tablename__ = "spotify_play_events"
+    __table_args__ = (
+        UniqueConstraint("user_id", "played_at", name="uq_user_played_at"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, ForeignKey("spotify_users.user_id"), nullable=False, index=True)
+    track_id = Column(String, nullable=False, index=True)
+    track_name = Column(String, nullable=True)
+    artist_names_json = Column(String, nullable=True)   # JSON-encoded list of artist names
+    artist_ids_json = Column(String, nullable=True)     # JSON-encoded list of artist IDs — needed later to batch-fetch genres
+    played_at = Column(DateTime, nullable=False, index=True)  # value from Spotify's played_at field
+    synced_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    def to_dict(self) -> Dict[str, Any]:
+        import json as _json
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "track_id": self.track_id,
+            "track_name": self.track_name,
+            "artist_names": _json.loads(self.artist_names_json) if self.artist_names_json else [],
+            "artist_ids": _json.loads(self.artist_ids_json) if self.artist_ids_json else [],
+            "played_at": self.played_at.isoformat() if self.played_at else None,
+            "synced_at": self.synced_at.isoformat() if self.synced_at else None,
+        }
+
 try:
     Base.metadata.create_all(bind=_engine)
 
@@ -272,6 +307,10 @@ try:
                 conn.execute(text("ALTER TABLE spotify_users ADD COLUMN spotify_account_id TEXT"))
             if "spotify_display_name" not in columns:
                 conn.execute(text("ALTER TABLE spotify_users ADD COLUMN spotify_display_name TEXT"))
+            if "sync_enabled" not in columns:
+                conn.execute(text("ALTER TABLE spotify_users ADD COLUMN sync_enabled BOOLEAN DEFAULT 0"))
+            if "last_synced_at" not in columns:
+                conn.execute(text("ALTER TABLE spotify_users ADD COLUMN last_synced_at TIMESTAMP"))
 
             # Migration for movies table
             m_result = conn.execute(text("PRAGMA table_info(movies)"))
