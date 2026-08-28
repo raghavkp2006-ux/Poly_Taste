@@ -415,7 +415,9 @@ function MusicSection({ isConnected }: { isConnected?: boolean }) {
       ) : tracks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
           <p className="text-sm text-muted-foreground max-w-xs">
-            Your Spotify is connected but no play history is synced yet. Hit <strong>Sync now</strong> to pull in your recent listens.
+            {syncStatus?.last_synced_at
+              ? "We synced your Spotify, but didn't find any recently finished tracks. Play some music and check back! (Note: Spotify only syncs tracks after they finish playing)"
+              : "Your Spotify is connected but no play history is synced yet. Hit Sync now to pull in your recent listens."}
           </p>
           <a
             href={api.auth.loginUrl}
