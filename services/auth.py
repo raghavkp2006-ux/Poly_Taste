@@ -5,7 +5,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", "dev_secret_key_change_me_in_prod")
+_DEFAULT_SECRET_KEY = "dev_secret_key_change_me_in_prod"
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", _DEFAULT_SECRET_KEY)
+
+if os.getenv("ENV") == "production" and (not os.getenv("SESSION_SECRET_KEY") or SESSION_SECRET_KEY == _DEFAULT_SECRET_KEY):
+    raise RuntimeError(
+        "SESSION_SECRET_KEY must be set to a secure custom value when ENV=production."
+    )
 
 serializer = URLSafeSerializer(SESSION_SECRET_KEY, salt="session-cookie")
 state_serializer = URLSafeSerializer(SESSION_SECRET_KEY, salt="oauth-state")
