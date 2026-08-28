@@ -227,8 +227,8 @@ function DashboardLayout({
           </PageWrapper>
         )}
         {currentPage === "music" && (
-          <PageWrapper title="Music">
-            <MusicSection isConnected={connections?.spotify ?? false} />
+          <PageWrapper title="Music Recommendations">
+            <MusicRecommendationsPage />
           </PageWrapper>
         )}
         {currentPage === "places" && (
@@ -283,6 +283,59 @@ function SettingsSection() {
           </p>
         </div>
       </Card>
+    </div>
+  )
+}
+
+function MusicRecommendationsPage() {
+  const [recommendations, setRecommendations] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    api.recommendations.getByCategory("music")
+      .then((recs) => setRecommendations(recs))
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-muted-foreground" size={24} /></div>
+  }
+
+  if (recommendations.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+        <p className="text-sm text-muted-foreground max-w-xs">
+          Connect Spotify and sync your history to get personalized music recommendations.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
+      {recommendations.map(r => (
+        <a 
+          key={r.id} 
+          href={r.url} 
+          target="_blank" 
+          rel="noreferrer"
+          className="flex flex-col gap-2 p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-colors border border-transparent hover:border-black/10 dark:hover:border-white/10"
+        >
+          {r.imageUrl ? (
+            <img src={r.imageUrl} alt={r.title} className="w-full aspect-square object-cover rounded-lg shadow-sm" />
+          ) : (
+            <div className="w-full aspect-square bg-black/10 dark:bg-white/10 rounded-lg flex items-center justify-center">
+              <span className="text-2xl text-muted-foreground">♪</span>
+            </div>
+          )}
+          <div className="flex flex-col">
+            <span className="font-semibold text-sm truncate">{r.title}</span>
+            <span className="text-xs text-muted-foreground truncate">{r.description}</span>
+          </div>
+        </a>
+      ))}
     </div>
   )
 }
@@ -721,6 +774,12 @@ export function TasteProfileModule() {
                >
                  Connect Spotify
                </Button>
+             )}
+             
+             {profile.spotify_connected && (
+               <div className="mt-6 border-t border-[#E4E4E7] dark:border-[#27272A] pt-4">
+                 <MusicSection isConnected={true} />
+               </div>
              )}
           </Card>
 

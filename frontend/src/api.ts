@@ -83,8 +83,25 @@ export const api = {
     unlike: (mal_id: number) => fetchApi("/anime/" + mal_id + "/like", { method: "DELETE" }),
   },
   recommendations: {
-    getByCategory: (category: string) =>
-      fetchApi<import("./types").Recommendation[]>(`/api/recommendations?category=${category}`),
+    getByCategory: async (category: string) => {
+      if (category === "music") {
+        try {
+          const res = await fetchApi<{ recommendations: any[] }>("/spotify/recommendations");
+          return res.recommendations.map(r => ({
+            id: r.id,
+            title: r.name,
+            description: r.artists ? r.artists.join(", ") : "",
+            imageUrl: r.image_url,
+            score: r.score,
+            url: `https://open.spotify.com/track/${r.id}`
+          }));
+        } catch (e) {
+          console.error("Music recs error", e);
+          return [];
+        }
+      }
+      return fetchApi<import("./types").Recommendation[]>(`/api/recommendations?category=${category}`)
+    },
     getRecent: () =>
       fetchApi<import("./types").RecentItem[]>("/api/recent"),
     getActivity: () =>

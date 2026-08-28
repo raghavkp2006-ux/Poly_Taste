@@ -214,6 +214,7 @@ def search_candidates(
                     "name": item.get("name", ""),
                     "artists": [a["name"] for a in item.get("artists", [])],
                     "album": item.get("album", {}).get("name", ""),
+                    "image_url": (item.get("album", {}).get("images", []) + [{}])[0].get("url"),
                 })
         except Exception as e:
             print(f"[spotify] search_candidates({genre}): {e}")
