@@ -317,7 +317,7 @@ def get_valid_access_token(user_id: str) -> str:
 @router.get("/login")
 def login_to_spotify(user_id: str = Depends(get_current_user_id)):
     state = create_state_token(user_id)
-    scope = "user-top-read user-library-read"
+    scope = "user-top-read user-library-read user-read-recently-played"
     url = (
         f"https://accounts.spotify.com/authorize?response_type=code"
         f"&client_id={SPOTIFY_CLIENT_ID}"
