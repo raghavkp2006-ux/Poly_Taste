@@ -266,6 +266,93 @@ def score_candidates(
     return score_candidate_tracks(candidates, user_profile, track_genres_map)
 
 
+def fetch_artists_bulk(artist_ids: List[str], token: str) -> List[Dict[str, Any]]:
+    """Fetch up to 50 artists in a single bulk call from Spotify API."""
+    if not artist_ids:
+        return []
+    headers = {"Authorization": f"Bearer {token}"}
+    artists = []
+    # Spotify bulk endpoint allows max 50 ids per request
+    for i in range(0, len(artist_ids), 50):
+        chunk = artist_ids[i : i + 50]
+        url = f"https://api.spotify.com/v1/artists?ids={','.join(chunk)}"
+        try:
+            resp = requests.get(url, headers=headers, timeout=6)
+            if resp.status_code == 200:
+                artists.extend(resp.json().get("artists", []))
+            else:
+                print(f"[spotify] fetch_artists_bulk error: status {resp.status_code}")
+        except Exception as e:
+            print(f"[spotify] fetch_artists_bulk exception: {e}")
+    return [a for a in artists if a]
+
+
+def get_genre_profile_from_history(user_id: str, token: str, limit: int = 50) -> Dict[str, float]:
+    """Build a weighted genre profile from the user's recently played history in the DB."""
+    db = SessionLocal()
+    try:
+        events = (
+            db.query(SpotifyPlayEvent)
+            .filter(SpotifyPlayEvent.user_id == user_id)
+            .order_by(SpotifyPlayEvent.played_at.desc())
+            .limit(limit)
+            .all()
+        )
+        if not events:
+            return {}
+
+        import json as _json
+        artist_id_counts = defaultdict(int)
+        artist_first_index = {}
+        unique_artist_ids = []
+
+        for idx, event in enumerate(events):
+            try:
+                aids = _json.loads(event.artist_ids_json) if event.artist_ids_json else []
+            except Exception:
+                aids = []
+            for aid in aids:
+                if aid not in artist_id_counts:
+                    unique_artist_ids.append(aid)
+                artist_id_counts[aid] += 1
+                if aid not in artist_first_index:
+                    artist_first_index[aid] = idx
+
+        if not unique_artist_ids:
+            return {}
+
+        # Fetch genre metadata for these artists in bulk
+        artists_data = fetch_artists_bulk(unique_artist_ids, token)
+        artist_by_id = {a["id"]: a for a in artists_data if "id" in a}
+
+        # Score artists by frequency + recency weight
+        artist_scores = {}
+        total_events = len(events)
+        for aid in unique_artist_ids:
+            freq = artist_id_counts[aid]
+            first_seen_idx = artist_first_index[aid]
+            recency_weight = (total_events - first_seen_idx) / total_events
+            artist_scores[aid] = freq * recency_weight
+
+        # Sort artists by computed score descending
+        sorted_aids = sorted(artist_scores, key=artist_scores.get, reverse=True)
+
+        # Build list of artist dicts ordered by score
+        sorted_artists = []
+        for aid in sorted_aids:
+            if aid in artist_by_id:
+                # Copy to avoid modifying cache
+                artist_copy = dict(artist_by_id[aid])
+                sorted_artists.append(artist_copy)
+
+        for artist in sorted_artists:
+            artist["genres"] = normalize_genres(artist.get("genres", []))
+
+        return compute_genre_profile(sorted_artists)
+    finally:
+        db.close()
+
+
 # ===========================================================================
 # ROUTES — Sync (Manual Trigger + Status)
 # ===========================================================================
@@ -474,16 +561,23 @@ def get_recommendations(limit: int = Query(default=10, ge=1, le=50), user_id: st
             status_code=artists_resp.status_code,
             detail="Failed to fetch top artists",
         )
-    artists = artists_resp.json().get("items", [])
+    artists = []
+    if artists_resp.status_code == 200:
+        artists = artists_resp.json().get("items", [])
 
+    user_profile = {}
     if not artists:
+        # Fallback to play history!
+        user_profile = get_genre_profile_from_history(user_id, token)
+    else:
+        # --- 2. Normalise genres and build profile ---
+        for artist in artists:
+            artist["genres"] = normalize_genres(artist.get("genres", []))
+        user_profile = compute_genre_profile(artists)
+
+    if not user_profile:
         return {"recommendations": [], "genre_profile": {}}
 
-    # --- 2. Normalise genres and build profile ---
-    for artist in artists:
-        artist["genres"] = normalize_genres(artist.get("genres", []))
-
-    user_profile = compute_genre_profile(artists)
     sorted_genres = sorted(user_profile, key=user_profile.get, reverse=True)
     top_genres = sorted_genres[:5]
 
