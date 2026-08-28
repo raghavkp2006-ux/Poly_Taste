@@ -305,10 +305,18 @@ function MusicRecommendationsPage() {
 
   if (recommendations.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
-        <p className="text-sm text-muted-foreground max-w-xs">
+      <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+        <p className="text-sm text-muted-foreground max-w-sm">
           Connect Spotify and sync your history to get personalized music recommendations.
         </p>
+        <div className="flex gap-3 mt-2">
+          <Button
+            onClick={() => window.location.href = api.auth.loginUrl}
+            style={{ backgroundColor: "#1DB954", color: "#fff" }}
+          >
+            Connect Spotify
+          </Button>
+        </div>
       </div>
     )
   }
