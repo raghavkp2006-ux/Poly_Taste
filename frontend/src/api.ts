@@ -133,6 +133,7 @@ export const api = {
       }),
   },
   spotify: {
+    loginUrl: `${API_BASE}/spotify/login`,
     getMusicFeed: (limit = 50) =>
       fetchApi<{ items: MusicTrack[]; count: number }>(`/spotify/music-feed?limit=${limit}`),
     getSyncStatus: () =>
