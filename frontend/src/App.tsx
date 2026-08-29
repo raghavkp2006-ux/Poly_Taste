@@ -778,7 +778,7 @@ export function TasteProfileModule() {
                <Button
                  className="mt-4"
                  style={{ backgroundColor: "#7C6CF0", color: "#fff" }}
-                 onClick={() => window.location.href = "http://localhost:8000/spotify/login"}
+                 onClick={() => window.location.href = api.spotify.loginUrl}
                >
                  Connect Spotify
                </Button>
@@ -807,7 +807,7 @@ export function TasteProfileModule() {
                <Button
                  className="mt-4"
                  style={{ backgroundColor: "#4A90E2", color: "#fff" }}
-                 onClick={() => window.location.href = "http://localhost:8000/anilist/login"}
+                 onClick={() => window.location.href = api.anilist.loginUrl}
                >
                  Connect AniList
                </Button>

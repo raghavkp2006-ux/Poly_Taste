@@ -28,11 +28,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Multi-Module Recommendation App", lifespan=lifespan)
 
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
 allowed_origins = (
     [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
     if allowed_origins_env
-    else ["http://localhost:5173", "http://127.0.0.1:5173"]
+    else list({FRONTEND_URL, "http://localhost:5173", "http://127.0.0.1:5173"})
 )
 
 app.add_middleware(
