@@ -27,13 +27,18 @@ import os
 import time
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
+from dotenv import load_dotenv
 
-from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Boolean, UniqueConstraint, ForeignKey, text, func
+from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Boolean, UniqueConstraint, ForeignKey, text, func, inspect
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+
+load_dotenv()
 
 _db_url = os.getenv("DATABASE_URL")
 if _db_url:
-    _engine = create_engine(_db_url)
+    if _db_url.startswith("postgres://"):
+        _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+    _engine = create_engine(_db_url, pool_pre_ping=True)
 else:
     _DB_PATH = os.getenv(
         "SQLITE_PATH",
@@ -119,7 +124,7 @@ class AniListUser(Base):  # type: ignore[valid-type]
 
     __tablename__ = "anilist_users"
 
-    user_id = Column(String, ForeignKey("users.id"), primary_key=True, index=True)
+    user_id = Column(String, primary_key=True, index=True)
     anilist_id = Column(Integer, nullable=False)
     anilist_username = Column(String, nullable=False)
     access_token = Column(String, nullable=False)
@@ -301,43 +306,65 @@ class SpotifyPlayEvent(Base):  # type: ignore[valid-type]
             "synced_at": self.synced_at.isoformat() if self.synced_at else None,
         }
 
-try:
-    Base.metadata.create_all(bind=_engine)
+def init_db():
+    """Create all tables in the database, run schema migrations, and log created tables."""
+    registered_tables = list(Base.metadata.tables.keys())
+    print(f"[database] Running Base.metadata.create_all() for {len(registered_tables)} registered models: {registered_tables}")
+    try:
+        Base.metadata.create_all(bind=_engine)
+    except Exception as err:
+        print(f"[database] ERROR executing Base.metadata.create_all(): {err}")
+        raise err
 
     # Inline schema migration to add new columns to existing DB if missing
     if _engine.dialect.name == "sqlite":
-        with _engine.begin() as conn:
-            result = conn.execute(text("PRAGMA table_info(spotify_users)"))
-            columns = [row[1] for row in result]
-            if "spotify_account_id" not in columns:
-                conn.execute(text("ALTER TABLE spotify_users ADD COLUMN spotify_account_id TEXT"))
-            if "spotify_display_name" not in columns:
-                conn.execute(text("ALTER TABLE spotify_users ADD COLUMN spotify_display_name TEXT"))
-            if "sync_enabled" not in columns:
-                conn.execute(text("ALTER TABLE spotify_users ADD COLUMN sync_enabled BOOLEAN DEFAULT 0"))
-            if "last_synced_at" not in columns:
-                conn.execute(text("ALTER TABLE spotify_users ADD COLUMN last_synced_at TIMESTAMP"))
+        try:
+            with _engine.begin() as conn:
+                result = conn.execute(text("PRAGMA table_info(spotify_users)"))
+                columns = [row[1] for row in result]
+                if "spotify_account_id" not in columns:
+                    conn.execute(text("ALTER TABLE spotify_users ADD COLUMN spotify_account_id TEXT"))
+                if "spotify_display_name" not in columns:
+                    conn.execute(text("ALTER TABLE spotify_users ADD COLUMN spotify_display_name TEXT"))
+                if "sync_enabled" not in columns:
+                    conn.execute(text("ALTER TABLE spotify_users ADD COLUMN sync_enabled BOOLEAN DEFAULT 0"))
+                if "last_synced_at" not in columns:
+                    conn.execute(text("ALTER TABLE spotify_users ADD COLUMN last_synced_at TIMESTAMP"))
 
-            # Migration for spotify_play_events new columns
-            pe_result = conn.execute(text("PRAGMA table_info(spotify_play_events)"))
-            pe_columns = [row[1] for row in pe_result]
-            if "album_name" not in pe_columns:
-                conn.execute(text("ALTER TABLE spotify_play_events ADD COLUMN album_name TEXT"))
-            if "album_image_url" not in pe_columns:
-                conn.execute(text("ALTER TABLE spotify_play_events ADD COLUMN album_image_url TEXT"))
-            if "duration_ms" not in pe_columns:
-                conn.execute(text("ALTER TABLE spotify_play_events ADD COLUMN duration_ms INTEGER"))
+                # Migration for spotify_play_events new columns
+                pe_result = conn.execute(text("PRAGMA table_info(spotify_play_events)"))
+                pe_columns = [row[1] for row in pe_result]
+                if "album_name" not in pe_columns:
+                    conn.execute(text("ALTER TABLE spotify_play_events ADD COLUMN album_name TEXT"))
+                if "album_image_url" not in pe_columns:
+                    conn.execute(text("ALTER TABLE spotify_play_events ADD COLUMN album_image_url TEXT"))
+                if "duration_ms" not in pe_columns:
+                    conn.execute(text("ALTER TABLE spotify_play_events ADD COLUMN duration_ms INTEGER"))
 
-            # Migration for movies table
-            m_result = conn.execute(text("PRAGMA table_info(movies)"))
-            m_columns = [row[1] for row in m_result]
-            if "vote_average" not in m_columns:
-                conn.execute(text("ALTER TABLE movies ADD COLUMN vote_average REAL"))
+                # Migration for movies table
+                m_result = conn.execute(text("PRAGMA table_info(movies)"))
+                m_columns = [row[1] for row in m_result]
+                if "vote_average" not in m_columns:
+                    conn.execute(text("ALTER TABLE movies ADD COLUMN vote_average REAL"))
 
-            conn.execute(text("DROP TABLE IF EXISTS restaurants"))
-            conn.execute(text("DROP TABLE IF EXISTS restaurant_reviews"))
-except Exception:
-    pass
+                conn.execute(text("DROP TABLE IF EXISTS restaurants"))
+                conn.execute(text("DROP TABLE IF EXISTS restaurant_reviews"))
+        except Exception as e:
+            print(f"[database] SQLite migration warning: {e}")
+
+    try:
+        inspector = inspect(_engine)
+        tables = inspector.get_table_names()
+        print(f"[database] Database tables confirmed present ({_engine.dialect.name}): {tables}")
+        return tables
+    except Exception as e:
+        print(f"[database] Warning: Failed to inspect table names: {e}")
+        return []
+
+try:
+    init_db()
+except Exception as e:
+    print(f"[database] Top-level init_db notice ({e}); will initialize during app lifespan startup.")
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
 

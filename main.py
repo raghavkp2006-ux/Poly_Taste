@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, Response
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from database import get_dynamodb_resource
+from database import get_dynamodb_resource, init_db
 from routers import google_auth, spotify, spotify_import, anime, taste, anilist, connections, tourist_spots, movie, dining
 from services.auth import get_current_user_id, create_session_cookie
 from services.spotify_scheduler import start_scheduler, stop_scheduler
@@ -13,10 +13,16 @@ from fastapi import HTTPException
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Startup: ensure database schema and tables are created
+    print("[main] Running application startup: initializing database schema...")
+    tables = init_db()
+    print(f"[main] Database schema verified on startup. Available tables: {tables}")
     # Startup: launch background scheduler
+    print("[main] Starting Spotify background scheduler...")
     start_scheduler()
     yield
     # Shutdown: stop scheduler gracefully
+    print("[main] Running application shutdown: stopping scheduler...")
     stop_scheduler()
 
 
