@@ -17,11 +17,14 @@ ANILIST_REDIRECT_URI = os.getenv("ANILIST_REDIRECT_URI")
 
 @router.get("/login")
 def login(user_id: str = Depends(get_current_user_id)):
+    client_id = (os.getenv("ANILIST_CLIENT_ID") or "").strip()
+    redirect_uri = (os.getenv("ANILIST_REDIRECT_URI") or "http://127.0.0.1:8000/anilist/callback").strip()
     state = create_state_token(user_id)
+    print(f"[anilist_login] Initiating OAuth: client_id={client_id}, redirect_uri={redirect_uri}")
     url = (
         f"https://anilist.co/api/v2/oauth/authorize"
-        f"?client_id={ANILIST_CLIENT_ID}"
-        f"&redirect_uri={ANILIST_REDIRECT_URI}"
+        f"?client_id={client_id}"
+        f"&redirect_uri={redirect_uri}"
         f"&response_type=code"
         f"&state={state}"
     )
@@ -36,20 +39,36 @@ def callback(code: str | None = None, state: str | None = None, error: str | Non
 
     user_id = verify_state_token(state)
 
+    client_id = (os.getenv("ANILIST_CLIENT_ID") or "").strip()
+    client_secret = (os.getenv("ANILIST_CLIENT_SECRET") or "").strip()
+    redirect_uri = (os.getenv("ANILIST_REDIRECT_URI") or "http://127.0.0.1:8000/anilist/callback").strip()
+
+    print(f"[anilist_callback] Exchanging token: client_id={client_id} (len={len(client_id)}), client_secret_len={len(client_secret)}, redirect_uri={redirect_uri}")
+
     # exchange authorization code for access token
     token_url = "https://anilist.co/api/v2/oauth/token"
     payload = {
         "grant_type": "authorization_code",
-        "client_id": ANILIST_CLIENT_ID,
-        "client_secret": ANILIST_CLIENT_SECRET,
-        "redirect_uri": ANILIST_REDIRECT_URI,
+        "client_id": int(client_id) if client_id.isdigit() else client_id,
+        "client_secret": client_secret,
+        "redirect_uri": redirect_uri,
         "code": code,
     }
     
     try:
-        response = requests.post(token_url, json=payload, headers={"Content-Type": "application/json", "Accept": "application/json"})
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "RecommendationApp/1.0",
+        }
+        response = requests.post(token_url, json=payload, headers=headers, timeout=10)
+        print(f"[anilist_callback] AniList token response: status={response.status_code}, body={response.text}")
         response.raise_for_status()
+    except requests.exceptions.HTTPError:
+        print(f"[anilist_callback] HTTP error from AniList: {response.text}")
+        raise HTTPException(status_code=400, detail=f"Failed to exchange token with AniList: {response.text}")
     except Exception as e:
+        print(f"[anilist_callback] Error during AniList token exchange: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to exchange token: {e}")
 
     token_data = response.json()
