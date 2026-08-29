@@ -134,6 +134,8 @@ export const api = {
   },
   spotify: {
     loginUrl: `${API_BASE}/spotify/login`,
+    disconnect: () =>
+      fetchApi<{ status: string; message: string }>("/spotify/disconnect", { method: "POST" }),
     getMusicFeed: (limit = 50) =>
       fetchApi<{ items: MusicTrack[]; count: number }>(`/spotify/music-feed?limit=${limit}`),
     getSyncStatus: () =>

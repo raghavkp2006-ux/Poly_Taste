@@ -180,7 +180,7 @@ def search_candidates(
     Search Spotify for candidate tracks across a list of genres.
 
     For each genre string in ``top_genres``, issues:
-        GET /v1/search?q=genre:<genre>&type=track&limit=<limit_per_genre>
+        GET /v1/search?q=genre:"<genre>"&type=track&limit=<limit_per_genre>
 
     Deduplicates by track id and excludes any id in ``exclude_ids``.
 
@@ -193,31 +193,39 @@ def search_candidates(
 
     for genre in top_genres:
         url = "https://api.spotify.com/v1/search"
-        params = {
-            "q": f"genre:{genre}",
-            "type": "track",
-            "limit": limit_per_genre,
-        }
-        try:
-            response = requests.get(url, headers=headers, params=params, timeout=5)
-            if response.status_code != 200:
-                print(f"[spotify] search_candidates: {response.status_code} for genre={genre}")
+        # Try genre query with quotes first, then fallback to raw genre term
+        queries = [f'genre:"{genre}"', genre]
+        genre_items = []
+        for q in queries:
+            params = {
+                "q": q,
+                "type": "track",
+                "limit": limit_per_genre,
+            }
+            try:
+                response = requests.get(url, headers=headers, params=params, timeout=5)
+                if response.status_code == 200:
+                    items = response.json().get("tracks", {}).get("items", [])
+                    if items:
+                        genre_items = items
+                        break
+                else:
+                    print(f"[spotify] search_candidates: {response.status_code} for query={q}")
+            except Exception as e:
+                print(f"[spotify] search_candidates({q}): {e}")
+
+        for item in genre_items:
+            tid = item.get("id")
+            if not tid or tid in seen_ids:
                 continue
-            items = response.json().get("tracks", {}).get("items", [])
-            for item in items:
-                tid = item.get("id")
-                if not tid or tid in seen_ids:
-                    continue
-                seen_ids.add(tid)
-                candidates.append({
-                    "id": tid,
-                    "name": item.get("name", ""),
-                    "artists": [a["name"] for a in item.get("artists", [])],
-                    "album": item.get("album", {}).get("name", ""),
-                    "image_url": (item.get("album", {}).get("images", []) + [{}])[0].get("url"),
-                })
-        except Exception as e:
-            print(f"[spotify] search_candidates({genre}): {e}")
+            seen_ids.add(tid)
+            candidates.append({
+                "id": tid,
+                "name": item.get("name", ""),
+                "artists": [a["name"] for a in item.get("artists", [])],
+                "album": item.get("album", {}).get("name", ""),
+                "image_url": (item.get("album", {}).get("images", []) + [{}])[0].get("url"),
+            })
 
     return candidates
 
@@ -291,13 +299,19 @@ def get_genre_profile_from_history(user_id: str, token: str, limit: int = 50) ->
     """Build a weighted genre profile from the user's recently played history in the DB."""
     db = SessionLocal()
     try:
+        total_events_in_db = (
+            db.query(SpotifyPlayEvent)
+            .filter(SpotifyPlayEvent.user_id == str(user_id))
+            .count()
+        )
         events = (
             db.query(SpotifyPlayEvent)
-            .filter(SpotifyPlayEvent.user_id == user_id)
+            .filter(SpotifyPlayEvent.user_id == str(user_id))
             .order_by(SpotifyPlayEvent.played_at.desc())
             .limit(limit)
             .all()
         )
+        print(f"[spotify_history] user_id={user_id}: total events in DB={total_events_in_db}, retrieved newest={len(events)}")
         if not events:
             return {}
 
@@ -318,12 +332,14 @@ def get_genre_profile_from_history(user_id: str, token: str, limit: int = 50) ->
                 if aid not in artist_first_index:
                     artist_first_index[aid] = idx
 
+        print(f"[spotify_history] user_id={user_id}: unique artist IDs={len(unique_artist_ids)}")
         if not unique_artist_ids:
             return {}
 
         # Fetch genre metadata for these artists in bulk
         artists_data = fetch_artists_bulk(unique_artist_ids, token)
         artist_by_id = {a["id"]: a for a in artists_data if "id" in a}
+        print(f"[spotify_history] user_id={user_id}: fetched {len(artists_data)} artists metadata from Spotify API")
 
         # Score artists by frequency + recency weight
         artist_scores = {}
@@ -348,7 +364,9 @@ def get_genre_profile_from_history(user_id: str, token: str, limit: int = 50) ->
         for artist in sorted_artists:
             artist["genres"] = normalize_genres(artist.get("genres", []))
 
-        return compute_genre_profile(sorted_artists)
+        profile = compute_genre_profile(sorted_artists)
+        print(f"[spotify_history] user_id={user_id}: computed history genre profile={profile}")
+        return profile
     finally:
         db.close()
 
@@ -501,6 +519,24 @@ def spotify_callback(code: str | None = None, state: str | None = None, error: s
     return RedirectResponse(f"{FRONTEND_URL}/dashboard?spotify=connected")
 
 
+@router.post("/disconnect")
+def disconnect_spotify(user_id: str = Depends(get_current_user_id)):
+    """Unlink Spotify account for the authenticated user."""
+    db = SessionLocal()
+    try:
+        deleted_events = db.query(SpotifyPlayEvent).filter(SpotifyPlayEvent.user_id == str(user_id)).delete()
+        deleted_user = db.query(SpotifyUser).filter(SpotifyUser.user_id == str(user_id)).delete()
+        db.commit()
+        print(f"[spotify] Unlinked Spotify account for user_id={user_id} (deleted {deleted_events} play events, {deleted_user} user record)")
+        return {"status": "ok", "message": "Spotify account disconnected successfully"}
+    except Exception as e:
+        db.rollback()
+        print(f"[spotify] Error disconnecting Spotify for {user_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to disconnect Spotify: {e}")
+    finally:
+        db.close()
+
+
 # ===========================================================================
 # ROUTES — Data fetching
 # ===========================================================================
@@ -522,8 +558,9 @@ def get_top_tracks(user_id: str = Depends(get_current_user_id)):
         {
             "id": item["id"],
             "name": item["name"],
-            "artists": [artist["name"] for artist in item["artists"]],
+            "artists": [a["name"] for a in item["artists"]],
             "album": item["album"]["name"],
+            "album_image": (item["album"]["images"] + [{}])[0].get("url"),
             "popularity": item["popularity"],
         }
         for item in data.get("items", [])
@@ -553,69 +590,99 @@ def get_recommendations(limit: int = Query(default=10, ge=1, le=50), user_id: st
     headers = {"Authorization": f"Bearer {token}"}
 
     # --- 1. Fetch top artists ---
-    artists_resp = requests.get(
-        "https://api.spotify.com/v1/me/top/artists?limit=50", headers=headers
-    )
-    if artists_resp.status_code != 200:
-        raise HTTPException(
-            status_code=artists_resp.status_code,
-            detail="Failed to fetch top artists",
-        )
     artists = []
-    if artists_resp.status_code == 200:
-        artists = artists_resp.json().get("items", [])
+    try:
+        artists_resp = requests.get(
+            "https://api.spotify.com/v1/me/top/artists?limit=50", headers=headers, timeout=6
+        )
+        if artists_resp.status_code == 200:
+            artists = artists_resp.json().get("items", [])
+        else:
+            print(f"[spotify_rec] user_id={user_id}: me/top/artists returned HTTP {artists_resp.status_code}")
+    except Exception as e:
+        print(f"[spotify_rec] user_id={user_id}: me/top/artists error: {e}")
 
-    user_profile = {}
-    if not artists:
-        # Fallback to play history!
-        user_profile = get_genre_profile_from_history(user_id, token)
-    else:
-        # --- 2. Normalise genres and build profile ---
+    user_profile: Dict[str, float] = {}
+    if artists:
         for artist in artists:
             artist["genres"] = normalize_genres(artist.get("genres", []))
         user_profile = compute_genre_profile(artists)
+        print(f"[spotify_rec] user_id={user_id}: top artists count={len(artists)}, computed profile={user_profile}")
+
+    # Fallback to play history if top/artists was empty or produced no genres
+    if not user_profile:
+        print(f"[spotify_rec] user_id={user_id}: falling back to database play history...")
+        user_profile = get_genre_profile_from_history(user_id, token)
+
+    # Fallback to imported streaming history profile if still empty
+    if not user_profile:
+        try:
+            from database import get_spotify_import_profile
+            import json as _json
+            import_data = get_spotify_import_profile(user_id)
+            if import_data and import_data.get("genre_profile_json"):
+                user_profile = _json.loads(import_data["genre_profile_json"])
+                print(f"[spotify_rec] user_id={user_id}: loaded imported streaming profile={user_profile}")
+        except Exception as exc:
+            print(f"[spotify_rec] user_id={user_id}: import-profile fallback error: {exc}")
+
+    print(f"[spotify_rec] user_id={user_id}: final user_profile={user_profile}")
 
     if not user_profile:
+        print(f"[spotify_rec] user_id={user_id}: NO genre profile available. Returning 0 recommendations.")
         return {"recommendations": [], "genre_profile": {}}
 
     sorted_genres = sorted(user_profile, key=user_profile.get, reverse=True)
     top_genres = sorted_genres[:5]
 
     # --- 3. Build exclusion set from user's own top tracks ---
-    top_tracks_resp = requests.get(
-        "https://api.spotify.com/v1/me/top/tracks?limit=50", headers=headers
-    )
     exclude_ids: Set[str] = set()
-    if top_tracks_resp.status_code == 200:
-        exclude_ids = {t["id"] for t in top_tracks_resp.json().get("items", [])}
+    try:
+        top_tracks_resp = requests.get(
+            "https://api.spotify.com/v1/me/top/tracks?limit=50", headers=headers, timeout=6
+        )
+        if top_tracks_resp.status_code == 200:
+            exclude_ids = {t["id"] for t in top_tracks_resp.json().get("items", [])}
+    except Exception as e:
+        print(f"[spotify_rec] user_id={user_id}: top/tracks exclusion error: {e}")
+
+    # Also exclude tracks from recent play history in DB
+    db = SessionLocal()
+    try:
+        recent_played_events = db.query(SpotifyPlayEvent.track_id).filter(SpotifyPlayEvent.user_id == str(user_id)).limit(100).all()
+        for row in recent_played_events:
+            if row[0]:
+                exclude_ids.add(row[0])
+    except Exception:
+        pass
+    finally:
+        db.close()
 
     # --- 4. Search candidates ---
     raw_candidates = search_candidates(top_genres, exclude_ids, token)
-
-    # Inject artist ids so score_candidates can fetch genres
-    # We re-search to get artist ids for each candidate track
-    artist_genre_cache: Dict[str, List[str]] = {}
-    track_genres_map: Dict[str, List[str]] = {}
-
-    for track in raw_candidates:
-        # Re-fetch track detail to get artist ids (search result already has them)
-        # search_candidates strips to name strings; inject _artist_ids here
-        pass  # handled below via a separate search call
+    print(f"[spotify_rec] user_id={user_id}: top_genres={top_genres}, raw_candidates found={len(raw_candidates)}")
 
     # Simpler: re-fetch track details for all candidate ids in one batch
     candidate_ids = [t["id"] for t in raw_candidates]
     CHUNK = 50
     track_details: Dict[str, Any] = {}
+    artist_genre_cache: Dict[str, List[str]] = {}
+    track_genres_map: Dict[str, List[str]] = {}
+
     for i in range(0, len(candidate_ids), CHUNK):
         chunk = candidate_ids[i : i + CHUNK]
-        resp = requests.get(
-            f"https://api.spotify.com/v1/tracks?ids={','.join(chunk)}",
-            headers=headers,
-        )
-        if resp.status_code == 200:
-            for t in resp.json().get("tracks", []) or []:
-                if t:
-                    track_details[t["id"]] = t
+        try:
+            resp = requests.get(
+                f"https://api.spotify.com/v1/tracks?ids={','.join(chunk)}",
+                headers=headers,
+                timeout=6,
+            )
+            if resp.status_code == 200:
+                for t in resp.json().get("tracks", []) or []:
+                    if t:
+                        track_details[t["id"]] = t
+        except Exception as e:
+            print(f"[spotify_rec] tracks details error: {e}")
 
     # Fetch genres per artist (cached)
     for track in raw_candidates:
@@ -634,6 +701,16 @@ def get_recommendations(limit: int = Query(default=10, ge=1, le=50), user_id: st
 
     # --- 5. Score ---
     scored = score_candidate_tracks(raw_candidates, user_profile, track_genres_map)
+    # If no candidate scored (e.g. artist genres missing), assign base score from genre search query
+    if not scored and raw_candidates:
+        print(f"[spotify_rec] user_id={user_id}: No candidates scored by artist genre overlap; falling back to raw candidate ranking")
+        for idx, cand in enumerate(raw_candidates):
+            cand_copy = dict(cand)
+            cand_copy["score"] = round(max(0.5 - (idx * 0.02), 0.1), 3)
+            cand_copy["matched_genres"] = top_genres[:2]
+            scored.append(cand_copy)
+
+    print(f"[spotify_rec] user_id={user_id}: total scored recommendations={len(scored)}")
 
     return {
         "recommendations": scored[:limit],

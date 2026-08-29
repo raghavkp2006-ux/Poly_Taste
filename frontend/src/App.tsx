@@ -326,6 +326,19 @@ function MusicRecommendationsPage({ isConnected }: { isConnected: boolean }) {
             <p className="text-sm text-muted-foreground max-w-sm">
               Your Spotify is connected, but we don't have enough signals yet. Make sure you've synced your recently played history in the Taste Profile page!
             </p>
+            <div className="flex gap-3 mt-2">
+              <Button
+                variant="outline"
+                className="text-xs"
+                onClick={() => {
+                  if (confirm("Disconnect Spotify and unlink account?")) {
+                    api.spotify.disconnect().then(() => window.location.reload())
+                  }
+                }}
+              >
+                Disconnect Spotify
+              </Button>
+            </div>
           </>
         )}
       </div>
@@ -356,6 +369,7 @@ function MusicSection({ isConnected }: { isConnected?: boolean }) {
   const [syncStatus, setSyncStatus] = useState<{ sync_enabled: boolean; last_synced_at: string | null } | null>(null)
   const [loading, setLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
 
   useEffect(() => {
@@ -369,6 +383,15 @@ function MusicSection({ isConnected }: { isConnected?: boolean }) {
       setSyncStatus(status)
     }).finally(() => setLoading(false))
   }, [isConnected])
+
+  function handleDisconnect() {
+    if (!confirm("Are you sure you want to disconnect Spotify?")) return
+    setDisconnecting(true)
+    api.spotify.disconnect()
+      .then(() => window.location.reload())
+      .catch((e: any) => alert(e.message || "Failed to disconnect Spotify"))
+      .finally(() => setDisconnecting(false))
+  }
 
   function handleSync() {
     setSyncing(true)
@@ -460,6 +483,13 @@ function MusicSection({ isConnected }: { isConnected?: boolean }) {
             }}
           >
             {syncing ? "Syncing…" : "↻ Sync now"}
+          </button>
+          <button
+            onClick={handleDisconnect}
+            disabled={disconnecting}
+            className="text-xs rounded-lg px-2.5 py-1.5 font-sans text-red-500 hover:text-red-600 dark:text-red-400 border border-red-500/20 hover:bg-red-500/10 transition-all disabled:opacity-50"
+          >
+            {disconnecting ? "Disconnecting…" : "Disconnect"}
           </button>
         </div>
       </div>
