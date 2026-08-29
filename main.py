@@ -1,6 +1,6 @@
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, Response
+from fastapi import FastAPI, Depends, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from database import get_dynamodb_resource, init_db
@@ -177,6 +177,203 @@ def debug_counts():
                 for p in import_profiles
             ],
         }
+    finally:
+        db.close()
+
+@app.get("/debug/spotify-recs")
+def debug_spotify_recs(request: Request, user_id: str | None = None):
+    """
+    Debug endpoint to run the exact Spotify recommendation pipeline for user_id
+    and return diagnostic output for every step.
+    Can be accessed with a session cookie or via ?user_id=<id>
+    """
+    import json as _json
+    from sqlalchemy.orm import Session
+    from database import SessionLocal, SpotifyUser, SpotifyPlayEvent
+    from services.auth import get_current_user_id
+    from services.spotify_sync import get_valid_access_token
+    from routers.spotify import (
+        get_genre_profile_from_history,
+        compute_genre_profile,
+        normalize_genres,
+        search_candidates,
+        score_candidate_tracks,
+        fetch_artists_bulk,
+    )
+    import requests
+
+    resolved_user_id = user_id
+    if not resolved_user_id:
+        try:
+            resolved_user_id = get_current_user_id(request)
+        except Exception as e:
+            resolved_user_id = None
+
+    if not resolved_user_id:
+        return {
+            "error": "No user_id provided or authenticated. Pass ?user_id=<id> (e.g. ?user_id=2) or log in with session cookie."
+        }
+
+    db: Session = SessionLocal()
+    diagnostics: dict = {
+        "user_id": str(resolved_user_id),
+        "step0_db_check": {},
+        "step1_spotify_token": {},
+        "step2_top_artists_api": {},
+        "step3_history_profile": {},
+        "step4_final_genre_profile": {},
+        "step5_candidate_search": {},
+        "step6_recommendations": {},
+    }
+
+    try:
+        # Step 0: Check DB rows
+        sp_user = db.query(SpotifyUser).filter(SpotifyUser.user_id == str(resolved_user_id)).first()
+        play_events_count = db.query(SpotifyPlayEvent).filter(SpotifyPlayEvent.user_id == str(resolved_user_id)).count()
+        sample_events = (
+            db.query(SpotifyPlayEvent)
+            .filter(SpotifyPlayEvent.user_id == str(resolved_user_id))
+            .order_by(SpotifyPlayEvent.played_at.desc())
+            .limit(3)
+            .all()
+        )
+
+        diagnostics["step0_db_check"] = {
+            "spotify_user_exists": sp_user is not None,
+            "spotify_user_info": sp_user.to_dict() if sp_user else None,
+            "play_events_count": play_events_count,
+            "sample_events": [
+                {
+                    "id": ev.id,
+                    "track_id": ev.track_id,
+                    "track_name": ev.track_name,
+                    "artist_names": _json.loads(ev.artist_names_json) if ev.artist_names_json else [],
+                    "artist_ids": _json.loads(ev.artist_ids_json) if ev.artist_ids_json else [],
+                    "played_at": ev.played_at.isoformat() if ev.played_at else None,
+                }
+                for ev in sample_events
+            ],
+        }
+
+        # Step 1: Token verification
+        token = None
+        try:
+            token = get_valid_access_token(str(resolved_user_id))
+            diagnostics["step1_spotify_token"] = {"valid": True, "token_preview": token[:10] + "..." if token else None}
+        except Exception as e:
+            diagnostics["step1_spotify_token"] = {"valid": False, "error": str(e)}
+
+        if not token:
+            diagnostics["error"] = "Cannot test Spotify API without valid access token"
+            return diagnostics
+
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Step 2: Top artists from Spotify
+        artists = []
+        try:
+            artists_resp = requests.get("https://api.spotify.com/v1/me/top/artists?limit=50", headers=headers, timeout=6)
+            diagnostics["step2_top_artists_api"] = {
+                "status_code": artists_resp.status_code,
+                "items_count": len(artists_resp.json().get("items", [])) if artists_resp.status_code == 200 else 0,
+            }
+            if artists_resp.status_code == 200:
+                artists = artists_resp.json().get("items", [])
+        except Exception as e:
+            diagnostics["step2_top_artists_api"] = {"error": str(e)}
+
+        # Step 3: History genre profile
+        history_profile = {}
+        try:
+            history_profile = get_genre_profile_from_history(str(resolved_user_id), token)
+            diagnostics["step3_history_profile"] = history_profile
+        except Exception as e:
+            diagnostics["step3_history_profile"] = {"error": str(e)}
+
+        # Step 4: Final profile
+        user_profile = {}
+        if artists:
+            for a in artists:
+                a["genres"] = normalize_genres(a.get("genres", []))
+            user_profile = compute_genre_profile(artists)
+
+        if not user_profile:
+            user_profile = history_profile
+
+        diagnostics["step4_final_genre_profile"] = user_profile
+
+        # Step 5: Candidate search (genres + artist names fallback)
+        top_genres = sorted(user_profile, key=user_profile.get, reverse=True)[:5] if user_profile else []
+        exclude_ids = set()
+        raw_candidates = []
+        if top_genres:
+            raw_candidates = search_candidates(top_genres, exclude_ids, token)
+
+        # Collect top artist names from DB play events and top/artists
+        top_artist_names = []
+        for ev in sample_events:
+            if ev.artist_names_json:
+                try:
+                    for name in _json.loads(ev.artist_names_json):
+                        if name and name not in top_artist_names:
+                            top_artist_names.append(name)
+                except Exception:
+                    pass
+        for a in artists:
+            aname = a.get("name")
+            if aname and aname not in top_artist_names:
+                top_artist_names.append(aname)
+
+        if not raw_candidates and top_artist_names:
+            seen_cand_ids = set(exclude_ids)
+            for aname in top_artist_names[:8]:
+                try:
+                    s_resp = requests.get(
+                        "https://api.spotify.com/v1/search",
+                        headers=headers,
+                        params={"q": f'artist:"{aname}"', "type": "track", "limit": 6},
+                        timeout=5,
+                    )
+                    if s_resp.status_code == 200:
+                        items = s_resp.json().get("tracks", {}).get("items", [])
+                        for it in items:
+                            it_id = it.get("id")
+                            if not it_id or it_id in seen_cand_ids:
+                                continue
+                            seen_cand_ids.add(it_id)
+                            raw_candidates.append({
+                                "id": it_id,
+                                "name": it.get("name", ""),
+                                "artists": [a["name"] for a in it.get("artists", [])],
+                                "album": it.get("album", {}).get("name", ""),
+                                "image_url": (it.get("album", {}).get("images", []) + [{}])[0].get("url"),
+                            })
+                except Exception as e:
+                    pass
+
+        diagnostics["step5_candidate_search"] = {
+            "top_genres": top_genres,
+            "top_artist_names": top_artist_names[:8],
+            "raw_candidates_found": len(raw_candidates),
+            "sample_candidates": [c.get("name") for c in raw_candidates[:3]],
+        }
+
+        # Step 6: Scored recommendations
+        track_genres_map: dict = {}
+        scored = score_candidate_tracks(raw_candidates, user_profile, track_genres_map)
+        if not scored and raw_candidates:
+            for idx, cand in enumerate(raw_candidates):
+                cand_copy = dict(cand)
+                cand_copy["score"] = round(max(0.95 - (idx * 0.03), 0.5), 3)
+                cand_copy["matched_genres"] = top_genres[:2] if top_genres else ["music"]
+                scored.append(cand_copy)
+
+        diagnostics["step6_recommendations"] = {
+            "scored_count": len(scored),
+            "sample_recommendations": scored[:3],
+        }
+
+        return diagnostics
     finally:
         db.close()
 

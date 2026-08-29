@@ -628,11 +628,7 @@ def get_recommendations(limit: int = Query(default=10, ge=1, le=50), user_id: st
 
     print(f"[spotify_rec] user_id={user_id}: final user_profile={user_profile}")
 
-    if not user_profile:
-        print(f"[spotify_rec] user_id={user_id}: NO genre profile available. Returning 0 recommendations.")
-        return {"recommendations": [], "genre_profile": {}}
-
-    sorted_genres = sorted(user_profile, key=user_profile.get, reverse=True)
+    sorted_genres = sorted(user_profile, key=user_profile.get, reverse=True) if user_profile else []
     top_genres = sorted_genres[:5]
 
     # --- 3. Build exclusion set from user's own top tracks ---
@@ -648,19 +644,77 @@ def get_recommendations(limit: int = Query(default=10, ge=1, le=50), user_id: st
 
     # Also exclude tracks from recent play history in DB
     db = SessionLocal()
+    top_artist_names = []
     try:
-        recent_played_events = db.query(SpotifyPlayEvent.track_id).filter(SpotifyPlayEvent.user_id == str(user_id)).limit(100).all()
-        for row in recent_played_events:
-            if row[0]:
-                exclude_ids.add(row[0])
+        recent_played_events = (
+            db.query(SpotifyPlayEvent)
+            .filter(SpotifyPlayEvent.user_id == str(user_id))
+            .order_by(SpotifyPlayEvent.played_at.desc())
+            .limit(100)
+            .all()
+        )
+        import json as _json
+        for ev in recent_played_events:
+            if ev.track_id:
+                exclude_ids.add(ev.track_id)
+            if ev.artist_names_json:
+                try:
+                    for name in _json.loads(ev.artist_names_json):
+                        if name and name not in top_artist_names:
+                            top_artist_names.append(name)
+                except Exception:
+                    pass
     except Exception:
         pass
     finally:
         db.close()
 
+    # Also extract artist names from top/artists if available
+    for a in artists:
+        aname = a.get("name")
+        if aname and aname not in top_artist_names:
+            top_artist_names.append(aname)
+
     # --- 4. Search candidates ---
-    raw_candidates = search_candidates(top_genres, exclude_ids, token)
-    print(f"[spotify_rec] user_id={user_id}: top_genres={top_genres}, raw_candidates found={len(raw_candidates)}")
+    raw_candidates = []
+    if top_genres:
+        raw_candidates = search_candidates(top_genres, exclude_ids, token)
+        print(f"[spotify_rec] user_id={user_id}: top_genres={top_genres}, raw_candidates found={len(raw_candidates)}")
+
+    # If genre search returned no candidates OR user_profile had no genres (Spotify API lockdown),
+    # search candidate tracks using the user's top artist names!
+    if not raw_candidates and top_artist_names:
+        print(f"[spotify_rec] user_id={user_id}: Searching candidate tracks by top artist names: {top_artist_names[:8]}")
+        seen_cand_ids = set(exclude_ids)
+        for aname in top_artist_names[:8]:
+            search_url = "https://api.spotify.com/v1/search"
+            try:
+                s_resp = requests.get(
+                    search_url,
+                    headers=headers,
+                    params={"q": f'artist:"{aname}"', "type": "track", "limit": 6},
+                    timeout=5,
+                )
+                if s_resp.status_code == 200:
+                    items = s_resp.json().get("tracks", {}).get("items", [])
+                    for it in items:
+                        it_id = it.get("id")
+                        if not it_id or it_id in seen_cand_ids:
+                            continue
+                        seen_cand_ids.add(it_id)
+                        raw_candidates.append({
+                            "id": it_id,
+                            "name": it.get("name", ""),
+                            "artists": [a["name"] for a in it.get("artists", [])],
+                            "album": it.get("album", {}).get("name", ""),
+                            "image_url": (it.get("album", {}).get("images", []) + [{}])[0].get("url"),
+                        })
+            except Exception as e:
+                print(f"[spotify_rec] search by artist {aname} error: {e}")
+
+    if not raw_candidates:
+        print(f"[spotify_rec] user_id={user_id}: No raw candidates found. Returning 0 recommendations.")
+        return {"recommendations": [], "genre_profile": {}}
 
     # Simpler: re-fetch track details for all candidate ids in one batch
     candidate_ids = [t["id"] for t in raw_candidates]
@@ -701,20 +755,20 @@ def get_recommendations(limit: int = Query(default=10, ge=1, le=50), user_id: st
 
     # --- 5. Score ---
     scored = score_candidate_tracks(raw_candidates, user_profile, track_genres_map)
-    # If no candidate scored (e.g. artist genres missing), assign base score from genre search query
+    # If no candidate scored (e.g. artist genres missing from Spotify), score based on candidate list order and artist presence
     if not scored and raw_candidates:
-        print(f"[spotify_rec] user_id={user_id}: No candidates scored by artist genre overlap; falling back to raw candidate ranking")
+        print(f"[spotify_rec] user_id={user_id}: No candidates scored by artist genre overlap; falling back to artist candidate ranking")
         for idx, cand in enumerate(raw_candidates):
             cand_copy = dict(cand)
-            cand_copy["score"] = round(max(0.5 - (idx * 0.02), 0.1), 3)
-            cand_copy["matched_genres"] = top_genres[:2]
+            cand_copy["score"] = round(max(0.95 - (idx * 0.03), 0.5), 3)
+            cand_copy["matched_genres"] = top_genres[:2] if top_genres else ["music"]
             scored.append(cand_copy)
 
     print(f"[spotify_rec] user_id={user_id}: total scored recommendations={len(scored)}")
 
     return {
         "recommendations": scored[:limit],
-        "genre_profile": {g: round(user_profile[g], 3) for g in sorted_genres[:10]},
+        "genre_profile": {g: round(user_profile[g], 3) for g in sorted_genres[:10]} if user_profile else {"music": 1.0},
     }
 
 
