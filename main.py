@@ -101,5 +101,40 @@ def get_recent():
 def get_recommendations(category: str | None = None):
     return []
 
+@app.get("/debug/counts")
+def debug_counts():
+    from sqlalchemy.orm import Session
+    from database import (
+        SessionLocal,
+        User,
+        SpotifyUser,
+        SpotifyPlayEvent,
+        UserLike,
+        AniListUser,
+        SpotifyImportProfile,
+        TouristSpot,
+        UserSpotFeedback,
+        DiningSpot,
+        UserDiningFeedback,
+        Movie,
+    )
+    db: Session = SessionLocal()
+    try:
+        return {
+            "users": db.query(User).count(),
+            "spotify_users": db.query(SpotifyUser).count(),
+            "spotify_play_events": db.query(SpotifyPlayEvent).count(),
+            "user_likes": db.query(UserLike).count(),
+            "anilist_users": db.query(AniListUser).count(),
+            "spotify_import_profiles": db.query(SpotifyImportProfile).count(),
+            "tourist_spots": db.query(TouristSpot).count(),
+            "user_spot_feedback": db.query(UserSpotFeedback).count(),
+            "dining_spots": db.query(DiningSpot).count(),
+            "user_dining_feedback": db.query(UserDiningFeedback).count(),
+            "movies": db.query(Movie).count(),
+        }
+    finally:
+        db.close()
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
