@@ -104,6 +104,7 @@ def get_recommendations(category: str | None = None):
 @app.get("/debug/counts")
 def debug_counts():
     from sqlalchemy.orm import Session
+    from sqlalchemy import func
     from database import (
         SessionLocal,
         User,
@@ -120,18 +121,61 @@ def debug_counts():
     )
     db: Session = SessionLocal()
     try:
+        per_user_events = (
+            db.query(SpotifyPlayEvent.user_id, func.count(SpotifyPlayEvent.id))
+            .group_by(SpotifyPlayEvent.user_id)
+            .all()
+        )
+        users = db.query(User).all()
+        spotify_users = db.query(SpotifyUser).all()
+        anilist_users = db.query(AniListUser).all()
+        import_profiles = db.query(SpotifyImportProfile).all()
+
         return {
-            "users": db.query(User).count(),
-            "spotify_users": db.query(SpotifyUser).count(),
-            "spotify_play_events": db.query(SpotifyPlayEvent).count(),
-            "user_likes": db.query(UserLike).count(),
-            "anilist_users": db.query(AniListUser).count(),
-            "spotify_import_profiles": db.query(SpotifyImportProfile).count(),
-            "tourist_spots": db.query(TouristSpot).count(),
-            "user_spot_feedback": db.query(UserSpotFeedback).count(),
-            "dining_spots": db.query(DiningSpot).count(),
-            "user_dining_feedback": db.query(UserDiningFeedback).count(),
-            "movies": db.query(Movie).count(),
+            "counts": {
+                "users": db.query(User).count(),
+                "spotify_users": db.query(SpotifyUser).count(),
+                "spotify_play_events": db.query(SpotifyPlayEvent).count(),
+                "user_likes": db.query(UserLike).count(),
+                "anilist_users": db.query(AniListUser).count(),
+                "spotify_import_profiles": db.query(SpotifyImportProfile).count(),
+                "tourist_spots": db.query(TouristSpot).count(),
+                "user_spot_feedback": db.query(UserSpotFeedback).count(),
+                "dining_spots": db.query(DiningSpot).count(),
+                "user_dining_feedback": db.query(UserDiningFeedback).count(),
+                "movies": db.query(Movie).count(),
+            },
+            "play_events_per_user": [{"user_id": u, "count": c} for u, c in per_user_events],
+            "users": [
+                {"id": u.id, "google_sub": u.google_sub, "email": u.email, "name": u.name}
+                for u in users
+            ],
+            "spotify_users": [
+                {
+                    "user_id": s.user_id,
+                    "spotify_account_id": s.spotify_account_id,
+                    "spotify_display_name": s.spotify_display_name,
+                    "sync_enabled": s.sync_enabled,
+                    "last_synced_at": s.last_synced_at.isoformat() if s.last_synced_at else None,
+                }
+                for s in spotify_users
+            ],
+            "anilist_users": [
+                {
+                    "user_id": a.user_id,
+                    "anilist_id": a.anilist_id,
+                    "anilist_username": a.anilist_username,
+                }
+                for a in anilist_users
+            ],
+            "spotify_import_profiles": [
+                {
+                    "user_id": p.user_id,
+                    "total_plays": p.total_plays,
+                    "unique_artists": p.unique_artists,
+                }
+                for p in import_profiles
+            ],
         }
     finally:
         db.close()
