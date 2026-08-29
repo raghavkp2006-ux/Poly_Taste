@@ -139,7 +139,9 @@ def google_callback(code: str | None = None, error: str | None = None):
         key="session",
         value=session_cookie,
         httponly=True,
-        samesite="lax",
+        samesite="none",
+        secure=True,
+        path="/",
         max_age=30 * 24 * 60 * 60,
     )
 

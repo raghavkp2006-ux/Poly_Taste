@@ -28,10 +28,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Multi-Module Recommendation App", lifespan=lifespan)
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
 allowed_origins = (
-    [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+    [origin.strip().rstrip("/") for origin in allowed_origins_env.split(",") if origin.strip()]
     if allowed_origins_env
     else list({FRONTEND_URL, "http://localhost:5173", "http://127.0.0.1:5173"})
 )
@@ -75,7 +75,9 @@ def login(req: LoginRequest, response: Response):
             key="session",
             value=session_cookie,
             httponly=True,
-            samesite="lax",
+            samesite="none",
+            secure=True,
+            path="/",
             max_age=30 * 24 * 60 * 60
         )
         return {"message": "Login successful", "user_id": req.email}
@@ -84,7 +86,7 @@ def login(req: LoginRequest, response: Response):
 
 @app.post("/auth/logout")
 def logout(response: Response):
-    response.delete_cookie(key="session", httponly=True, samesite="lax")
+    response.delete_cookie(key="session", path="/", httponly=True, samesite="none", secure=True)
     return {"message": "Logged out successfully"}
 
 @app.get("/api/activity")
