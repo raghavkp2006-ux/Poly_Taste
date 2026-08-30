@@ -98,6 +98,43 @@ export const mockMusicRecommendations: Recommendation[] = [
   },
 ]
 
+// ── Places recommendations ──────────────────────────────────────────
+
+export const mockPlacesRecommendations: Recommendation[] = [
+  {
+    id: "p1",
+    title: "Marina Beach",
+    imageUrl: "",
+    reason: "Chill scenic waterfront matching your relaxed listening vibes",
+    score: 95,
+    category: "places",
+  },
+  {
+    id: "p2",
+    title: "Kapaleeshwarar Temple",
+    imageUrl: "",
+    reason: "Historic architecture and cultural depth tuned to your taste",
+    score: 92,
+    category: "places",
+  },
+  {
+    id: "p3",
+    title: "Besant Nagar Beach & Promenade",
+    imageUrl: "",
+    reason: "Popular chill social spot with coastal cafes",
+    score: 89,
+    category: "places",
+  },
+  {
+    id: "p4",
+    title: "Guindy National Park",
+    imageUrl: "",
+    reason: "Lush green trails and outdoor exploration",
+    score: 87,
+    category: "places",
+  },
+]
+
 // ── Recently viewed ─────────────────────────────────────────────────
 
 export const mockRecentItems: RecentItem[] = [

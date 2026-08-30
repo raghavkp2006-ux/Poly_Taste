@@ -1,4 +1,4 @@
-import { Tv, Music, AlertCircle } from "lucide-react"
+import { Tv, Music, MapPin, AlertCircle } from "lucide-react"
 import { motion } from "framer-motion"
 import { getHighResImageUrl } from "../../lib/utils"
 import type { Recommendation, Category, PageId } from "../../types"
@@ -10,7 +10,7 @@ import { StationBadge, Card } from "../interchange"
 
 export const DOMAIN: Record<Category, {
   icon: React.ElementType
-  domainKey: "anime" | "music"
+  domainKey: "anime" | "music" | "tourism"
   label: string
 }> = {
   anime: {
@@ -22,6 +22,11 @@ export const DOMAIN: Record<Category, {
     icon:     Music,
     domainKey: "music",
     label:    "Music",
+  },
+  places: {
+    icon:     MapPin,
+    domainKey: "tourism",
+    label:    "Places",
   },
 }
 
@@ -256,6 +261,11 @@ const EMPTY_COPY: Record<Category, { title: string; description: string; action?
     title:       "No music signals yet",
     description: "Connect Spotify to activate your music signal.",
   },
+  places: {
+    title:       "No place signals yet",
+    description: "Connect music or anime to discover spots tailored to your vibe",
+    action:      "Explore Places",
+  },
 }
 
 function EmptyState({
@@ -294,13 +304,14 @@ function EmptyState({
   const handleAction = () => {
     if (!isConnected) {
       if (isMusic) {
-        window.location.href = api.auth.loginUrl
+        window.location.href = api.spotify.loginUrl
       } else if (isAnime) {
         window.location.href = api.anilist.loginUrl
       }
     } else {
       if (category === "anime") onNavigate("anime")
-      else                      onNavigate("music")
+      else if (category === "places") onNavigate("places")
+      else onNavigate("music")
     }
   }
 

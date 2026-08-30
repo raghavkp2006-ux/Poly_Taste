@@ -1,6 +1,6 @@
 // ── Recommendation types ────────────────────────────────────────────
 
-export type Category = "anime" | "music"
+export type Category = "anime" | "music" | "places"
 
 export interface Recommendation {
   id: string

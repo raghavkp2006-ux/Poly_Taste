@@ -5,6 +5,7 @@ import {
   PlusCircle,
   Tv,
   Music,
+  MapPin,
   Activity,
 } from "lucide-react"
 import { motion } from "framer-motion"
@@ -30,6 +31,7 @@ const ACTION_COLORS: Record<ActivityAction, string> = {
 const CATEGORY_ICONS: Record<Category, React.ElementType> = {
   anime:      Tv,
   music:      Music,
+  places:     MapPin,
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────

@@ -314,7 +314,7 @@ function MusicRecommendationsPage({ isConnected }: { isConnected: boolean }) {
             </p>
             <div className="flex gap-3 mt-2">
               <Button
-                onClick={() => window.location.href = api.auth.loginUrl}
+                onClick={() => window.location.href = api.spotify.loginUrl}
                 style={{ backgroundColor: "#1DB954", color: "#fff" }}
               >
                 Connect Spotify
@@ -440,7 +440,7 @@ function MusicSection({ isConnected }: { isConnected?: boolean }) {
           </p>
         </div>
         <a
-          href={api.auth.loginUrl}
+          href={api.spotify.loginUrl}
           className="inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-sans font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C6CF0] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0E14]"
           style={{
             backgroundColor: `${MUSIC_ACCENT}20`,
@@ -511,7 +511,7 @@ function MusicSection({ isConnected }: { isConnected?: boolean }) {
               : "Your Spotify is connected but no play history is synced yet. Hit Sync now to pull in your recent listens."}
           </p>
           <a
-            href={api.auth.loginUrl}
+            href={api.spotify.loginUrl}
             className="text-xs underline underline-offset-2"
             style={{ color: MUSIC_ACCENT }}
           >
@@ -560,7 +560,7 @@ function MusicSection({ isConnected }: { isConnected?: boolean }) {
       {/* Reconnect link */}
       <div className="pt-2 text-center">
         <a
-          href={api.auth.loginUrl}
+          href={api.spotify.loginUrl}
           className="text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground transition-colors"
         >
           Reconnect Spotify

@@ -100,7 +100,13 @@ export const api = {
           return [];
         }
       }
-      return fetchApi<import("./types").Recommendation[]>(`/api/recommendations?category=${category}`)
+      if (category === "anime") {
+        return api.anime.getDashboardRecommendations();
+      }
+      if (category === "places") {
+        return api.touristSpots.getRecommendations();
+      }
+      return [];
     },
     getRecent: () =>
       fetchApi<import("./types").RecentItem[]>("/api/recent"),
@@ -123,6 +129,22 @@ export const api = {
       if (price_tier) params.append("price_tier", price_tier)
       const qs = params.toString() ? `?${params.toString()}` : ""
       return fetchApi<import("./types").TouristSpot[]>(`/tourist-spots${qs}`)
+    },
+    getRecommendations: async (limit = 20): Promise<import("./types").Recommendation[]> => {
+      try {
+        const spots = await fetchApi<import("./types").TouristSpot[]>(`/tourist-spots/recommendations?limit=${limit}`);
+        return (spots || []).map((s, idx) => ({
+          id: s.place_id,
+          title: s.name,
+          reason: s.description || `${s.category?.replace(/_/g, " ")} • ${s.city}`,
+          imageUrl: "",
+          score: Math.max(95 - idx * 2, 70),
+          category: "places" as const,
+        }));
+      } catch (e) {
+        console.error("Tourist spots recommendations error", e);
+        return [];
+      }
     },
     getById: (place_id: string) =>
       fetchApi<import("./types").TouristSpot>(`/tourist-spots/${place_id}`),
